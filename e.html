@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maille scene</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>html,body{margin:0;height:100%;background:#050506}maille-scene{position:fixed;inset:0;width:100%;height:100%}</style>
+</head>
+<body>
+<maille-scene id="scene"></maille-scene>
+<script src="maille.js"></script>
+<script>
+  // e.html?c=<base64url config>  or  e.html?preset=golden-hour
+  const q = new URLSearchParams(location.search), el = document.getElementById('scene');
+  try {
+    if (q.get('c')) el.config = JSON.parse(Maille.b64.decode(q.get('c')));
+    else if (q.get('preset')) el.setAttribute('preset', q.get('preset'));
+  } catch (e) { console.warn('Maille: could not read the config in the URL', e); }
+  if (q.get('speed')) el.setAttribute('speed', q.get('speed'));
+  if (q.has('paused')) el.setAttribute('paused', '');
+</script>
+</body>
+</html>

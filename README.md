@@ -1,0 +1,28 @@
+# Maille
+
+Animated ASCII scenes you tune in a studio and embed anywhere.
+
+Static site, no build step. Deploy the folder as-is (Vercel: framework "Other", output directory = root).
+
+| File | Role |
+| --- | --- |
+| `index.html` | The studio: every setting, palettes, presets, PNG/WebM export, embed code |
+| `maille.js` | The library: rendering engine + `<maille-scene>` web component (the file embeds load) |
+| `e.html` | Iframe embed: `e.html?preset=alpine-day` or `e.html?c=<config>` |
+| `docs.html` | Public docs: script embed, iframe embed, attributes, presets, JS API |
+| `vercel.json` | CORS on `maille.js` so other sites can load it, iframe allowed everywhere |
+| `favicon.svg` | Icon |
+
+## Embed
+
+```html
+<script src="https://YOUR-DOMAIN/maille.js" defer></script>
+<maille-scene preset="alpenglow" style="display:block;width:100%;aspect-ratio:16/9"></maille-scene>
+```
+
+The studio's **Copy embed** button writes this with your exact settings in `config`.
+
+## To do before sharing publicly
+
+- Link previews: `og.png` (1200×630) is included. Once the domain is known, make the `og:image` URL in `index.html` absolute (`https://YOUR-DOMAIN/og.png`) and add the same tag to `docs.html`.
+- Optional: minify `maille.js` (`npx terser maille.js -c -m -o maille.js`), about 64 KB down to 35 KB.

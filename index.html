@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Maille</title>
+<meta name="description" content="Maille turns landscapes, sharks, waves, images and type into animated ASCII grids you can tune and embed anywhere.">
+<meta property="og:title" content="Maille">
+<meta property="og:description" content="Animated ASCII scenes you can tune and embed anywhere.">
+<meta property="og:image" content="/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;600&family=IBM+Plex+Mono:wght@400;600&family=Space+Mono&family=Fira+Code:wght@400;600&family=DM+Mono&family=Courier+Prime&display=swap">
+<style>
+  /* Layout: studio — live stage with a transport bar on the left, a scrolling inspector of collapsible sections on the right; stacks on phones. Single dark look. */
+  :root {
+    --bg: #08090a;
+    --surface: #0e0f11;
+    --raised: #141518;
+    --line: #1f2125;
+    --fg: #e7e8ea;
+    --muted: #80858d;
+    --accent: #5ec8e0;
+    --ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--fg); font: 12px/1.4 var(--ui);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 16px; box-sizing: border-box; margin: 0;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  .app { display: grid; grid-template-columns: minmax(0, 1fr) 312px; gap: 20px; height: 100%; max-width: 1680px; margin: 0 auto; }
+
+  /* Stage */
+  .stage { min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 12px; }
+  .well { min-height: 0; display: flex; align-items: center; justify-content: center; }
+  .frame { position: relative; aspect-ratio: var(--ar); width: min(100%, calc((100dvh - 92px) * var(--arn))); max-width: 100%; background: #050506; }
+  .frame.drop::after { content: ""; position: absolute; inset: 0; outline: 1px solid var(--accent); outline-offset: -1px; }
+  canvas { display: block; width: 100%; height: 100%; }
+  .transport { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .transport .scrub { flex: 1 1 160px; min-width: 120px; }
+  .time { font: 12px var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); min-width: 52px; }
+
+  /* Inspector */
+  .inspector { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-right: 4px; }
+  .head { display: flex; align-items: center; justify-content: space-between; }
+  .name { font-weight: 500; font-size: 14px; }
+  .headlinks { display: flex; align-items: center; gap: 12px; }
+  .headlinks a { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line); }
+  .headlinks a:hover { border-color: var(--fg); }
+  textarea[readonly] { color: var(--muted); }
+  .presets { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
+  details { border-top: 1px solid var(--line); }
+  summary {
+    list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; color: var(--fg); font-weight: 500;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: ""; width: 6px; height: 6px; border-right: 1px solid var(--muted); border-bottom: 1px solid var(--muted); transform: rotate(-45deg); transition: transform .15s; margin-right: 3px; }
+  details[open] > summary::after { transform: rotate(45deg); }
+  summary:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+  .body { display: grid; gap: 12px; padding-bottom: 14px; }
+  .sub { color: var(--muted); padding-top: 4px; }
+
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 10px; row-gap: 6px; min-height: 22px; }
+  .row > label, .row > .lbl { color: var(--muted); }
+  .row output { font: 11px var(--mono); font-variant-numeric: tabular-nums; color: var(--fg); text-align: right; }
+  .row input[type=range] { grid-column: 1 / -1; }
+  .row.stack > :last-child { grid-column: 1 / -1; }
+
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 14px; background: transparent; margin: 0; }
+  input[type=range]::-webkit-slider-runnable-track { height: 2px; background: var(--line); }
+  input[type=range]::-moz-range-track { height: 2px; background: var(--line); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; margin-top: -4px; background: var(--fg); border: 0; }
+  input[type=range]::-moz-range-thumb { width: 10px; height: 10px; background: var(--fg); border: 0; border-radius: 0; }
+  input[type=range]:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+
+  button, .file, select {
+    font: 12px var(--ui); color: var(--muted); background: transparent;
+    border: 1px solid var(--line); padding: 6px 9px; cursor: pointer; border-radius: 0; text-align: center;
+  }
+  button:hover, .file:hover, select:hover { color: var(--fg); }
+  button:focus-visible, select:focus-visible, .file:focus-within { outline: 1px solid var(--accent); outline-offset: 1px; }
+  button[aria-pressed=true] { color: var(--fg); background: var(--line); }
+  button.primary { color: var(--bg); background: var(--fg); border-color: var(--fg); }
+  select { color: var(--fg); background: var(--surface); text-align: left; }
+  .file { position: relative; display: block; }
+  .file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  a.file { color: var(--muted); text-decoration: none; }
+  a.file:hover { color: var(--fg); }
+  input[type=text], textarea {
+    font: 12px var(--mono); color: var(--fg); background: var(--surface);
+    border: 1px solid var(--line); padding: 6px 8px; width: 100%; border-radius: 0;
+  }
+  textarea { min-height: 96px; resize: vertical; }
+  input[type=text]:focus, textarea:focus { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--line); }
+  .seg button { border: 0; border-left: 1px solid var(--line); padding-inline: 4px; }
+  .seg button:first-child { border-left: 0; }
+  .seg.grid3 { grid-auto-flow: row; grid-template-columns: repeat(3, 1fr); }
+  .seg.grid3 button { border-left: 1px solid var(--line); border-top: 1px solid var(--line); margin: -1px 0 0 -1px; }
+
+  .switch { width: 28px; height: 16px; padding: 0; position: relative; border: 1px solid var(--line); background: var(--surface); }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; background: var(--muted); transition: transform .12s, background .12s; }
+  .switch[aria-checked=true] { background: var(--line); }
+  .switch[aria-checked=true]::after { transform: translateX(12px); background: var(--fg); }
+
+  .swatch { display: inline-flex; align-items: center; gap: 8px; }
+  .swatch input[type=color] { width: 22px; height: 22px; padding: 0; border: 1px solid var(--line); background: none; cursor: pointer; }
+  .swatch input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+  .swatch input[type=color]::-webkit-color-swatch { border: 0; }
+  .swatch input[type=color]::-moz-color-swatch { border: 0; }
+  .swatch code { font: 11px var(--mono); color: var(--muted); width: 56px; }
+  .colors { display: grid; gap: 6px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .pair.three { grid-template-columns: 1fr 1fr 1fr; }
+  .note { color: var(--muted); font-size: 11px; }
+  .toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 7px 12px; font-size: 12px; opacity: 0; pointer-events: none; transition: opacity .15s; }
+  .toast.on { opacity: 1; }
+
+  @media (max-width: 860px) {
+    .app { grid-template-columns: 1fr; height: auto; }
+    .frame { width: min(100%, calc(62dvh * var(--arn))); }
+    .inspector { overflow: visible; }
+  }
+  @media (prefers-reduced-motion: reduce) { summary::after, .switch::after, .toast { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <section class="stage">
+    <div class="well"><div class="frame" id="frame"><canvas id="cv" aria-label="Animated ASCII scene"></canvas></div></div>
+    <div class="transport">
+      <button id="play" aria-pressed="false">Pause</button>
+      <span class="time" id="time">0.0 s</span>
+      <input class="scrub" type="range" id="scrub" min="0" max="120" step="0.05" value="0" aria-label="Time">
+      <div class="seg" id="format" aria-label="Format">
+        <button data-v="16:9">16:9</button><button data-v="3:4">3:4</button><button data-v="1:1">1:1</button><button data-v="9:16">9:16</button>
+      </div>
+      <button id="shuffle">Shuffle</button>
+    </div>
+  </section>
+
+  <aside class="inspector" id="inspector">
+    <div class="head"><span class="name">Maille</span><span class="headlinks"><span class="note" id="seedNote"></span><a href="docs.html">Docs</a></span></div>
+
+    <div class="seg grid3" id="sceneSeg" aria-label="Scene"></div>
+
+    <div class="presets">
+      <select id="presetSel" aria-label="Presets"></select>
+      <button id="presetSave">Save</button>
+      <button id="presetDel" title="Delete the selected saved preset">Delete</button>
+    </div>
+
+    <details open id="secScene"><summary id="secSceneTitle">Scene</summary><div class="body" id="sceneBody"></div></details>
+    <details id="secColors"><summary>Colours</summary><div class="body" id="colorBody"></div></details>
+    <details><summary>Characters</summary><div class="body" id="charBody"></div></details>
+    <details><summary>Look</summary><div class="body" id="lookBody"></div></details>
+    <details open id="secEmbed"><summary>Embed</summary>
+      <div class="body">
+        <div class="seg" id="embedKind"><button data-v="script" aria-pressed="true">Script</button><button data-v="iframe" aria-pressed="false">Iframe</button></div>
+        <textarea id="embedBox" readonly spellcheck="false" aria-label="Embed code"></textarea>
+        <div class="pair"><button class="primary" id="copyEmbed">Copy embed</button><a class="file" id="openEmbed" href="e.html" target="_blank" rel="noopener">Open preview</a></div>
+        <p class="note" id="embedNote">Paste it into Framer, Webflow, Notion or any HTML page. The scene keeps every setting you see here.</p>
+      </div>
+    </details>
+    <details><summary>Export</summary>
+      <div class="body">
+        <div class="row"><label for="pngSize">PNG width</label>
+          <select id="pngSize"><option value="1920">1920</option><option value="2560" selected>2560</option><option value="3840">3840</option></select></div>
+        <div class="row"><label for="recLen">Video length</label>
+          <select id="recLen"><option value="5">5 s</option><option value="8" selected>8 s</option><option value="12">12 s</option><option value="20">20 s</option></select></div>
+        <div class="pair"><button id="png">Save PNG</button><button id="rec">Record WebM</button></div>
+        <span class="sub">Settings</span>
+        <div class="pair three"><button id="copyJson">Copy</button><button id="saveJson">Save .json</button><label class="file" for="loadJson">Open<input type="file" id="loadJson" accept="application/json,.json"></label></div>
+        <textarea id="jsonBox" placeholder="Paste settings JSON here, then Apply" spellcheck="false" aria-label="Settings JSON"></textarea>
+        <div class="pair"><button id="applyJson">Apply</button><button id="resetAll">Reset all</button></div>
+        <p class="note">window.maille.seek(t) renders an exact frame for scripted captures.</p>
+      </div>
+    </details>
+  </aside>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="maille.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const AF = window.Maille;
+  const clone = (x) => JSON.parse(JSON.stringify(x));
+  const FORMATS = { '16:9': [16, 9], '3:4': [3, 4], '1:1': [1, 1], '9:16': [9, 16] };
+  const SCENES = [['alpenglow', 'Alpenglow'], ['sharks', 'Sharks'], ['waves', 'Waves'], ['landscape', 'Landscape'], ['image', 'Image'], ['text', 'Text']];
+  const SPECIES = { mix: ['grey', 'sand', 'hammer', 'grey'], grey: ['grey'], sand: ['sand'], hammer: ['hammer'] };
+  const FONTS = [
+    ['JetBrains Mono', '"JetBrains Mono", ui-monospace, monospace'], ['IBM Plex Mono', '"IBM Plex Mono", ui-monospace, monospace'],
+    ['Space Mono', '"Space Mono", ui-monospace, monospace'], ['Fira Code', '"Fira Code", ui-monospace, monospace'],
+    ['DM Mono', '"DM Mono", ui-monospace, monospace'], ['Courier Prime', '"Courier Prime", "Courier New", monospace'],
+  ];
+  const RAMPS = [['Classic', '@8%SX#t;:'], ['Dense', '@%#*+=-:.'], ['Letters', 'MWNXK0Okxdol:,.'], ['Blocks', '█▓▒░'], ['Binary', '10'], ['Dots', '●•·'], ['Hex', 'FEDCBA9876543210']];
+
+  // ---------- formats ----------
+  const f2 = (v) => (+v).toFixed(2), pct = (v) => Math.round(v * 100) + '%', int = (v) => String(Math.round(v)), xx = (v) => (+v).toFixed(1) + '×', deg = (v) => Math.round(v) + '°';
+
+  // ---------- control schema ----------
+  const SCENE_UI = {
+    alpenglow: [
+      ['Light', [
+        { k: 'agDaylight', label: 'Daylight', type: 'range', min: 0, max: 1, step: 0.01, fmt: pct },
+        { k: 'agCycle', label: 'Day cycle', type: 'toggle' },
+        { k: 'agCycleSpeed', label: 'Cycle speed', type: 'range', min: 0.2, max: 4, step: 0.1, fmt: xx },
+        { k: 'agGlow', label: 'Glow line', type: 'range', min: 0, max: 0.9, step: 0.01, fmt: f2 },
+        { k: 'agLight', label: 'Sun side', type: 'seg', options: [[-1, 'Left'], [1, 'Right']] },
+        { k: 'agSun', label: 'Sun disc', type: 'toggle' },
+        { k: 'agSunX', label: 'Sun x', type: 'range', min: 0.03, max: 0.97, step: 0.01, fmt: f2 },
+        { k: 'agSunY', label: 'Sun y', type: 'range', min: 0.04, max: 0.4, step: 0.01, fmt: f2 },
+      ]],
+      ['Mountains', [
+        { k: 'size', label: 'Height', type: 'range', min: 0.4, max: 1.5, step: 0.01, fmt: xx },
+        { k: 'agPeak1', label: 'Main peak', type: 'range', min: 0.15, max: 0.85, step: 0.01, fmt: f2 },
+        { k: 'agPeak2', label: 'Second peak', type: 'range', min: 0.15, max: 0.9, step: 0.01, fmt: f2 },
+        { k: 'agRugged', label: 'Ruggedness', type: 'range', min: 0, max: 2, step: 0.05, fmt: xx },
+        { k: 'agSnow', label: 'Snow cover', type: 'range', min: 0, max: 1, step: 0.01, fmt: pct },
+        { k: 'agHaze', label: 'Haze', type: 'range', min: 0.4, max: 2.5, step: 0.05, fmt: xx },
+        { k: 'agFar', label: 'Far ranges', type: 'toggle' },
+      ]],
+      ['Atmosphere', [
+        { k: 'agClouds', label: 'Clouds', type: 'range', min: 0, max: 1.5, step: 0.05, fmt: xx },
+        { k: 'agCloudSpeed', label: 'Cloud speed', type: 'range', min: 0, max: 5, step: 0.1, fmt: xx },
+        { k: 'agMist', label: 'Mist', type: 'range', min: 0, max: 1.6, step: 0.05, fmt: xx },
+        { k: 'agMistSpeed', label: 'Mist speed', type: 'range', min: 0, max: 5, step: 0.1, fmt: xx },
+        { k: 'agStars', label: 'Stars', type: 'range', min: 0, max: 3, step: 0.1, fmt: xx },
+        { k: 'agBirds', label: 'Birds', type: 'range', min: 0, max: 16, step: 1, fmt: int },
+        { k: 'agFireflies', label: 'Fireflies', type: 'range', min: 0, max: 80, step: 1, fmt: int },
+      ]],
+      ['Foreground', [
+        { k: 'agTrees', label: 'Trees', type: 'toggle' },
+        { k: 'agTreeScale', label: 'Tree height', type: 'range', min: 0.4, max: 1.4, step: 0.01, fmt: xx },
+        { k: 'agFlowers', label: 'Flowers', type: 'range', min: 0, max: 3, step: 0.05, fmt: xx },
+        { k: 'agWind', label: 'Wind', type: 'range', min: 0, max: 3, step: 0.05, fmt: xx },
+        { k: 'agGrass', label: 'Grass blades', type: 'toggle' },
+      ]],
+    ],
+    sharks: [['Sharks', [
+      { k: 'speciesSet', label: 'Species', type: 'seg', options: [['mix', 'Mix'], ['grey', 'Grey'], ['sand', 'Sand'], ['hammer', 'Hammer']] },
+      { k: 'count', label: 'Sharks', type: 'range', min: 1, max: 10, step: 1, fmt: int },
+      { k: 'size', label: 'Size', type: 'range', min: 0.4, max: 1.8, step: 0.01, fmt: xx },
+      { k: 'heading', label: 'Direction', type: 'range', min: -180, max: 180, step: 5, fmt: deg },
+      { k: 'spread', label: 'Spread', type: 'range', min: 0, max: 90, step: 1, fmt: deg },
+    ]]],
+    waves: [['Waves', [
+      { k: 'size', label: 'Swell', type: 'range', min: 0.3, max: 2, step: 0.01, fmt: xx },
+      { k: 'heading', label: 'Direction', type: 'seg', options: [[0, 'Right'], [180, 'Left']] },
+    ]]],
+    landscape: [['Landscape', [{ k: 'size', label: 'Relief', type: 'range', min: 0.3, max: 2, step: 0.01, fmt: xx }]]],
+    image: [['Source', [
+      { type: 'file' },
+      { k: 'threshold', label: 'Threshold', type: 'range', min: 0.02, max: 0.95, step: 0.01, fmt: f2 },
+      { k: 'size', label: 'Zoom', type: 'range', min: 0.5, max: 3, step: 0.01, fmt: xx },
+      { k: 'color', label: 'Source colours', type: 'toggle' },
+      { k: 'invert', label: 'Invert', type: 'toggle' },
+    ]]],
+    text: [['Text', [
+      { k: 'text', label: 'Text', type: 'text' },
+      { k: 'threshold', label: 'Threshold', type: 'range', min: 0.02, max: 0.95, step: 0.01, fmt: f2 },
+      { k: 'invert', label: 'Invert', type: 'toggle' },
+    ]]],
+  };
+  const CHAR_UI = [
+    { k: 'font', label: 'Font', type: 'select', options: FONTS.map(([n, v]) => [v, n]) },
+    { k: 'rampPreset', label: 'Character set', type: 'select', options: RAMPS.map(([n, v]) => [v, n]).concat([['custom', 'Custom']]) },
+    { k: 'ramp', label: 'Body characters (dense → light)', type: 'text' },
+    { k: 'edgeChars', label: 'Outline characters', type: 'text' },
+    { k: 'highChars', label: 'Highlight characters', type: 'text' },
+    { k: 'cols', label: 'Columns', type: 'range', min: 24, max: 360, step: 2, fmt: int },
+    { k: 'cellAspect', label: 'Cell height', type: 'range', min: 1, max: 2.2, step: 0.05, fmt: xx },
+    { k: 'gapAuto', label: 'Auto gap', type: 'toggle' },
+    { k: 'gap', label: 'Gap', type: 'range', min: 0, max: 4, step: 1, fmt: (v) => v + ' px' },
+    { k: 'inkAuto', label: 'Auto ink', type: 'toggle' },
+    { k: 'ink', label: 'Ink contrast', type: 'range', min: 0, max: 1, step: 0.01, fmt: f2 },
+  ];
+  const LOOK_UI = [
+    { k: 'speed', label: 'Speed', type: 'range', min: 0, max: 4, step: 0.05, fmt: xx },
+    { k: 'brightness', label: 'Brightness', type: 'range', min: 0.4, max: 1.8, step: 0.01, fmt: xx },
+    { k: 'saturation', label: 'Saturation', type: 'range', min: 0, max: 2, step: 0.01, fmt: xx },
+    { k: 'glitch', label: 'Glitch', type: 'range', min: 0, max: 0.4, step: 0.005, fmt: pct },
+    { k: 'flicker', label: 'Flicker', type: 'range', min: 0, max: 10, step: 0.1, fmt: (v) => (+v).toFixed(1) + '/s' },
+    { k: 'glow', label: 'Glow dots', type: 'toggle' },
+    { k: 'trails', label: 'Trails', type: 'toggle' },
+    { k: 'grid', label: 'Grid lines', type: 'toggle' },
+    { k: 'gridColor', label: 'Grid colour', type: 'color' },
+    { k: 'bgAuto', label: 'Scene background', type: 'toggle' },
+    { k: 'background', label: 'Background', type: 'color' },
+    { k: 'accents', label: 'Glitch colours', type: 'colors' },
+  ];
+  const COLOR_LABELS = [
+    ['Sky', [['skyTop', 'Top'], ['skyMid', 'Horizon'], ['skyBottom', 'Low']]],
+    ['Peaks', [['snowHi', 'Snow, summit'], ['snowMid', 'Snow, mid'], ['snowLo', 'Snow, low'], ['snowShadow', 'Snow, shadow'], ['rockLit', 'Rock, lit'], ['rockShadow', 'Rock, shadow']]],
+    ['Distance', [['far', 'Far ranges'], ['haze', 'Haze'], ['foot', 'Foothills'], ['near', 'Near hills'], ['mist', 'Mist']]],
+    ['Foreground', [['leaf', 'Foliage'], ['leaf2', 'Foliage 2'], ['rim', 'Rim light'], ['grass', 'Grass'], ['flower1', 'Flower 1'], ['flower2', 'Flower 2'], ['flower3', 'Flower 3'], ['flower4', 'Flower 4'], ['flower5', 'Flower 5']]],
+    ['Sky details', [['cloud', 'Clouds'], ['sun', 'Sun'], ['star', 'Stars'], ['bird', 'Birds'], ['firefly', 'Fireflies']]],
+  ];
+
+  // ---------- state ----------
+  const ENGINE_KEYS = Object.keys(AF.DEFAULTS).filter((k) => !['width', 'height', 'source', 'species', 'speed'].includes(k));
+  const defaults = () => AF.configDefaults();
+  const SCENE_COLS = { alpenglow: 200, sharks: 64, waves: 96, landscape: 96, image: 140, text: 120 };
+  const PRESETS = Object.values(AF.PRESETS).map((p) => [p.name, p.config]);
+  const LS_STATE = 'maille:state', LS_PRESETS = 'maille:presets';
+  const store = {
+    get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ } },
+  };
+  let S = AF.resolve(store.get(LS_STATE) || {});
+  let source = null;
+  let paletteEdit = 'dusk';
+
+  // ---------- engine ----------
+  const frameEl = $('frame'), cv = $('cv'), ctx = cv.getContext('2d');
+  const engineOpts = (st = S) => AF.toEngine(st, source);
+  const engine = AF.create(Object.assign({ width: 640, height: 360 }, engineOpts()));
+  // Send only what changed, so sliders never rebuild the scene needlessly
+  const lastSent = {};
+  const sig = (v) => (v && typeof v === 'object' && (Array.isArray(v) || v.constructor === Object) ? JSON.stringify(v) : v);
+  for (const [k, v] of Object.entries(engineOpts())) lastSent[k] = sig(v);
+  function push() {
+    const o = engineOpts(), diff = {};
+    for (const k in o) { const sv = sig(o[k]); if (lastSent[k] !== sv) { diff[k] = o[k]; lastSent[k] = sv; } }
+    if (Object.keys(diff).length) engine.set(diff);
+    save();
+  }
+  let saveT = 0;
+  function save() { clearTimeout(saveT); saveT = setTimeout(() => store.set(LS_STATE, S), 300); if (typeof refreshEmbed === 'function') refreshEmbed(); }
+
+  function applyFormat() {
+    const [w, h] = FORMATS[S.format];
+    frameEl.style.setProperty('--ar', `${w} / ${h}`);
+    frameEl.style.setProperty('--arn', String(w / h));
+    for (const b of $('format').children) b.setAttribute('aria-pressed', String(b.dataset.v === S.format));
+    requestAnimationFrame(fit);
+  }
+  function fit() {
+    const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+    const w = Math.max(2, Math.round(r.width * dpr)), h = Math.max(2, Math.round(r.height * dpr));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; engine.set({ width: w, height: h }); }
+  }
+  new ResizeObserver(fit).observe(cv);
+
+  // ---------- control builders ----------
+  let uid = 0;
+  function control(def, onChange) {
+    const id = 'c' + (++uid) + '_' + (def.k || def.type);
+    const row = document.createElement('div');
+    row.className = 'row';
+    const set = (v) => { S[def.k] = v; onChange ? onChange(v) : push(); refreshDeps(); };
+    if (def.type === 'range') {
+      row.innerHTML = `<label for="${id}">${def.label}</label><output for="${id}"></output><input type="range" id="${id}" min="${def.min}" max="${def.max}" step="${def.step}">`;
+      const inp = row.querySelector('input'), out = row.querySelector('output');
+      inp.value = S[def.k]; out.textContent = def.fmt(S[def.k]);
+      inp.addEventListener('input', () => { const v = parseFloat(inp.value); out.textContent = def.fmt(v); set(v); });
+      row.sync = () => { inp.value = S[def.k]; out.textContent = def.fmt(S[def.k]); };
+    } else if (def.type === 'toggle') {
+      row.innerHTML = `<span class="lbl" id="${id}l">${def.label}</span><button class="switch" role="switch" aria-labelledby="${id}l"></button>`;
+      const b = row.querySelector('button');
+      b.setAttribute('aria-checked', String(!!S[def.k]));
+      b.addEventListener('click', () => { const v = !S[def.k]; b.setAttribute('aria-checked', String(v)); set(v); });
+      row.sync = () => b.setAttribute('aria-checked', String(!!S[def.k]));
+    } else if (def.type === 'seg') {
+      row.classList.add('stack');
+      row.innerHTML = `<span class="lbl">${def.label}</span><div class="seg"></div>`;
+      const seg = row.querySelector('.seg');
+      for (const [v, l] of def.options) {
+        const b = document.createElement('button'); b.textContent = l; b.dataset.v = v;
+        b.addEventListener('click', () => { const val = typeof def.options[0][0] === 'number' ? +v : v; set(val); row.sync(); });
+        seg.appendChild(b);
+      }
+      row.sync = () => { for (const b of seg.children) b.setAttribute('aria-pressed', String(String(S[def.k]) === b.dataset.v)); };
+      row.sync();
+    } else if (def.type === 'select') {
+      row.classList.add('stack');
+      row.innerHTML = `<label for="${id}">${def.label}</label><select id="${id}"></select>`;
+      const sel = row.querySelector('select');
+      for (const [v, l] of def.options) { const op = document.createElement('option'); op.value = v; op.textContent = l; sel.appendChild(op); }
+      sel.addEventListener('change', () => set(sel.value));
+      row.sync = () => { sel.value = S[def.k]; if (sel.value !== String(S[def.k]) && def.k === 'rampPreset') sel.value = 'custom'; };
+      row.sync();
+    } else if (def.type === 'text') {
+      row.classList.add('stack');
+      row.innerHTML = `<label for="${id}">${def.label}</label><input type="text" id="${id}" autocomplete="off" spellcheck="false">`;
+      const inp = row.querySelector('input');
+      inp.value = S[def.k];
+      inp.addEventListener('input', () => set(inp.value || ' '));
+      row.sync = () => { if (document.activeElement !== inp) inp.value = S[def.k]; };
+    } else if (def.type === 'color') {
+      row.innerHTML = `<label for="${id}">${def.label}</label><span class="swatch"><code></code><input type="color" id="${id}"></span>`;
+      const inp = row.querySelector('input'), code = row.querySelector('code');
+      row.sync = () => { inp.value = S[def.k]; code.textContent = S[def.k]; };
+      inp.addEventListener('input', () => { code.textContent = inp.value; set(inp.value); });
+      row.sync();
+    } else if (def.type === 'colors') {
+      row.classList.add('stack');
+      row.innerHTML = `<span class="lbl">${def.label}</span><div class="swatch"></div>`;
+      const box = row.querySelector('.swatch');
+      row.sync = () => {
+        box.innerHTML = '';
+        S[def.k].forEach((c, i) => {
+          const inp = document.createElement('input'); inp.type = 'color'; inp.value = c; inp.setAttribute('aria-label', `${def.label} ${i + 1}`);
+          inp.addEventListener('input', () => { S[def.k][i] = inp.value; push(); });
+          box.appendChild(inp);
+        });
+      };
+      row.sync();
+    } else if (def.type === 'file') {
+      row.classList.add('stack');
+      row.innerHTML = `<span class="lbl">Image or video (or drop it on the stage)</span><label class="file" for="${id}">Choose file<input type="file" id="${id}" accept="image/*,video/*"></label>`;
+      row.querySelector('input').addEventListener('change', (e) => loadMedia(e.target.files[0]));
+      row.sync = () => {};
+    }
+    row.dataset.k = def.k || '';
+    controls.push(row);
+    return row;
+  }
+  let controls = [];
+  function refreshDeps() {
+    for (const r of controls) {
+      const k = r.dataset.k;
+      if (k === 'gap') r.hidden = S.gapAuto;
+      if (k === 'ink') r.hidden = S.inkAuto;
+      if (k === 'background') r.hidden = S.bgAuto;
+      if (k === 'gridColor') r.hidden = !S.grid;
+      if (k === 'agCycleSpeed') r.hidden = !S.agCycle;
+      if (k === 'agDaylight') r.hidden = S.agCycle;
+      if (k === 'agSunX' || k === 'agSunY') r.hidden = !S.agSun;
+      if (k === 'agTreeScale') r.hidden = !S.agTrees;
+    }
+  }
+
+  function buildSceneUI() {
+    controls = controls.filter((r) => !r.isConnected || !$('sceneBody').contains(r));
+    const body = $('sceneBody'); body.innerHTML = '';
+    const groups = SCENE_UI[S.scene] || [];
+    $('secSceneTitle').textContent = (SCENES.find(([id]) => id === S.scene) || [, 'Scene'])[1];
+    groups.forEach(([title, defs], gi) => {
+      if (groups.length > 1) { const h = document.createElement('span'); h.className = 'sub'; h.textContent = title; body.appendChild(h); }
+      for (const d of defs) {
+        body.appendChild(control(d));
+      }
+    });
+    $('secColors').hidden = S.scene !== 'alpenglow';
+    buildColorUI();
+    refreshDeps();
+  }
+  function buildColorUI() {
+    const body = $('colorBody'); body.innerHTML = '';
+    if (S.scene !== 'alpenglow') return;
+    const seg = document.createElement('div'); seg.className = 'seg';
+    for (const [v, l] of [['dusk', 'Dusk palette'], ['day', 'Day palette']]) {
+      const b = document.createElement('button'); b.textContent = l; b.setAttribute('aria-pressed', String(paletteEdit === v));
+      b.addEventListener('click', () => { paletteEdit = v; buildColorUI(); });
+      seg.appendChild(b);
+    }
+    body.appendChild(seg);
+    const note = document.createElement('p'); note.className = 'note';
+    note.textContent = 'Base colours at mid-tone; light and shade vary around them. Daylight blends the two palettes.';
+    body.appendChild(note);
+    const pal = S.agPalettes[paletteEdit];
+    for (const [title, keys] of COLOR_LABELS) {
+      const h = document.createElement('span'); h.className = 'sub'; h.textContent = title; body.appendChild(h);
+      const box = document.createElement('div'); box.className = 'colors';
+      for (const [k, label] of keys) {
+        const id = 'pc_' + paletteEdit + '_' + k;
+        const row = document.createElement('div'); row.className = 'row';
+        row.innerHTML = `<label for="${id}">${label}</label><span class="swatch"><code>${pal[k]}</code><input type="color" id="${id}" value="${pal[k]}"></span>`;
+        const inp = row.querySelector('input'), code = row.querySelector('code');
+        inp.addEventListener('input', () => { pal[k] = inp.value; code.textContent = inp.value; push(); });
+        box.appendChild(row);
+      }
+      body.appendChild(box);
+    }
+    const reset = document.createElement('button'); reset.textContent = `Reset ${paletteEdit} palette`;
+    reset.addEventListener('click', () => { S.agPalettes[paletteEdit] = clone(AF.DEFAULTS.agPalettes[paletteEdit]); push(); buildColorUI(); toast('Palette reset'); });
+    body.appendChild(reset);
+  }
+  function buildStaticUI() {
+    controls = [];
+    const cb = $('charBody'); cb.innerHTML = '';
+    for (const d of CHAR_UI) {
+      let onChange = null;
+      if (d.k === 'font') onChange = (v) => { push(); loadFont(v); };
+      if (d.k === 'rampPreset') onChange = (v) => { if (v !== 'custom') { S.ramp = v; } push(); syncAll(); };
+      if (d.k === 'ramp') onChange = () => { S.rampPreset = RAMPS.some(([, r]) => r === S.ramp) ? S.ramp : 'custom'; push(); syncAll(); };
+      cb.appendChild(control(d, onChange));
+    }
+    const lb = $('lookBody'); lb.innerHTML = '';
+    for (const d of LOOK_UI) lb.appendChild(control(d, d.k === 'speed' ? () => save() : null));
+    const seg = $('sceneSeg'); seg.innerHTML = '';
+    for (const [id, label] of SCENES) {
+      const b = document.createElement('button'); b.textContent = label; b.dataset.v = id;
+      b.addEventListener('click', () => { S.scene = id; S.cols = SCENE_COLS[id] || S.cols; syncScene(); push(); buildSceneUI(); syncAll(); });
+      seg.appendChild(b);
+    }
+    syncScene();
+    buildSceneUI();
+  }
+  function syncScene() { for (const b of $('sceneSeg').children) b.setAttribute('aria-pressed', String(b.dataset.v === S.scene)); $('seedNote').textContent = `seed ${S.seed}`; }
+  function syncAll() { for (const r of controls) r.sync && r.sync(); refreshDeps(); syncScene(); }
+  function loadFont(v) {
+    const fam = v.split(',')[0].trim();
+    if (document.fonts) document.fonts.load(`16px ${fam}`).then(() => engine.refresh()).catch(() => {});
+  }
+
+  // ---------- presets ----------
+  function userPresets() { return store.get(LS_PRESETS) || []; }
+  function fillPresets(selected) {
+    const sel = $('presetSel'); sel.innerHTML = '';
+    const g1 = document.createElement('optgroup'); g1.label = 'Built in';
+    PRESETS.forEach(([n], i) => { const o = document.createElement('option'); o.value = 'b' + i; o.textContent = n; g1.appendChild(o); });
+    sel.appendChild(g1);
+    const ups = userPresets();
+    if (ups.length) {
+      const g2 = document.createElement('optgroup'); g2.label = 'Saved';
+      ups.forEach((p, i) => { const o = document.createElement('option'); o.value = 'u' + i; o.textContent = p.name; g2.appendChild(o); });
+      sel.appendChild(g2);
+    }
+    const o = document.createElement('option'); o.value = ''; o.textContent = 'Current settings'; o.hidden = true; sel.prepend(o);
+    sel.value = selected || '';
+    $('presetDel').disabled = !String(sel.value).startsWith('u');
+  }
+  function applyState(next) {
+    S = AF.resolve(next);
+    applyFormat(); push(); buildStaticUI(); syncAll(); loadFont(S.font);
+  }
+  $('presetSel').addEventListener('change', (e) => {
+    const v = e.target.value;
+    if (v.startsWith('b')) applyState(Object.assign(defaults(), PRESETS[+v.slice(1)][1]));
+    else if (v.startsWith('u')) applyState(userPresets()[+v.slice(1)].state);
+    $('presetDel').disabled = !v.startsWith('u');
+  });
+  // Inline name field instead of prompt(), which the viewer blocks
+  $('presetSave').addEventListener('click', () => {
+    const box = document.querySelector('.presets');
+    if (box.querySelector('input')) return;
+    const inp = document.createElement('input'); inp.type = 'text'; inp.placeholder = 'Preset name'; inp.id = 'presetName';
+    inp.style.gridColumn = '1 / -1';
+    box.appendChild(inp); inp.focus();
+    let closed = false;
+    const done = (ok) => {
+      if (closed) return; closed = true;
+      const name = inp.value.trim(); inp.remove();
+      if (!ok || !name) return;
+      const ups = userPresets().filter((p) => p.name !== name);
+      ups.push({ name, state: clone(S) }); store.set(LS_PRESETS, ups);
+      fillPresets('u' + (ups.length - 1)); toast(`Saved "${name}"`);
+    };
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') done(true); if (e.key === 'Escape') done(false); });
+    inp.addEventListener('blur', () => done(true));
+  });
+  $('presetDel').addEventListener('click', () => {
+    const v = $('presetSel').value; if (!v.startsWith('u')) return;
+    const ups = userPresets(); const [gone] = ups.splice(+v.slice(1), 1); store.set(LS_PRESETS, ups);
+    fillPresets(); toast(`Deleted "${gone.name}"`);
+  });
+
+  // ---------- media ----------
+  function loadMedia(file) {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const done = (el) => { source = el; S.scene = 'image'; syncScene(); push(); buildSceneUI(); };
+    if (file.type.startsWith('video/')) {
+      const v = document.createElement('video'); v.muted = true; v.loop = true; v.playsInline = true; v.src = url;
+      v.addEventListener('loadeddata', () => { v.play().catch(() => {}); done(v); }, { once: true });
+    } else { const img = new Image(); img.onload = () => done(img); img.src = url; }
+  }
+  frameEl.addEventListener('dragover', (e) => { e.preventDefault(); frameEl.classList.add('drop'); });
+  frameEl.addEventListener('dragleave', () => frameEl.classList.remove('drop'));
+  frameEl.addEventListener('drop', (e) => { e.preventDefault(); frameEl.classList.remove('drop'); loadMedia(e.dataTransfer.files[0]); });
+
+  // ---------- transport ----------
+  let simT = 0, last = performance.now(), playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, scrubbing = false;
+  const setPlay = (p) => { playing = p; $('play').textContent = p ? 'Pause' : 'Play'; $('play').setAttribute('aria-pressed', String(!p)); };
+  setPlay(playing);
+  $('play').addEventListener('click', () => setPlay(!playing));
+  $('scrub').addEventListener('input', (e) => { scrubbing = true; simT = parseFloat(e.target.value); });
+  $('scrub').addEventListener('change', () => { scrubbing = false; });
+  $('format').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; S.format = b.dataset.v; applyFormat(); save(); });
+  $('shuffle').addEventListener('click', () => { S.seed = (Math.random() * 99999) | 0; push(); syncScene(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Space' || /INPUT|TEXTAREA|SELECT|BUTTON/.test(document.activeElement.tagName)) return;
+    e.preventDefault(); setPlay(!playing);
+  });
+  function tick(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (playing && !scrubbing) simT += dt * S.speed;
+    engine.render(ctx, simT);
+    $('time').textContent = simT.toFixed(1) + ' s';
+    if (!scrubbing) $('scrub').value = simT % 120;
+    requestAnimationFrame(tick);
+  }
+
+  // ---------- export ----------
+  const toastEl = $('toast'); let toastT = 0;
+  function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 1800); }
+  let dlPromise = null;
+  const inViewer = () => !!(window.claude && window.claude.use);
+  function getDownloads() {
+    if (!inViewer()) return Promise.resolve(null);
+    if (!dlPromise) dlPromise = window.claude.use('downloads').catch(() => null);
+    return dlPromise;
+  }
+  async function saveFile(name, data) {
+    const downloads = await getDownloads();
+    if (downloads) {
+      try { await downloads.save({ filename: name, data }); toast('Saved ' + name); }
+      catch (err) { toast(err && err.code === 'declined' ? 'Save cancelled' : 'This view cannot save files'); }
+      return;
+    }
+    if (inViewer()) { toast('This view cannot save files'); return; }
+    const blob = data instanceof Blob ? data : new Blob([data]);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+    toast('Saved ' + name);
+  }
+  $('png').addEventListener('click', () => {
+    const [w, h] = FORMATS[S.format], W = +$('pngSize').value, Hh = Math.round(W * h / w);
+    const off = document.createElement('canvas'); off.width = W; off.height = Hh;
+    const scaleCols = Object.assign(engineOpts(), { width: W, height: Hh });
+    AF.create(scaleCols).render(off.getContext('2d'), simT);
+    off.toBlob((b) => saveFile(`maille-${S.scene}-${S.seed}.png`, b), 'image/png');
+  });
+  $('rec').addEventListener('click', () => {
+    const btn = $('rec'); if (btn.disabled) return;
+    const type = ['video/webm;codecs=vp9', 'video/webm'].find((t) => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
+    if (!type) { toast('Recording is not supported in this browser'); return; }
+    const secs = +$('recLen').value;
+    const rec = new MediaRecorder(cv.captureStream(60), { mimeType: type, videoBitsPerSecond: 24e6 });
+    const chunks = []; rec.ondataavailable = (e) => chunks.push(e.data);
+    rec.onstop = () => { btn.disabled = false; btn.textContent = 'Record WebM'; saveFile(`maille-${S.scene}-${S.seed}.webm`, new Blob(chunks, { type: 'video/webm' })); };
+    setPlay(true); btn.disabled = true; btn.textContent = `Recording ${secs} s…`; rec.start(); setTimeout(() => rec.stop(), secs * 1000);
+  });
+  const json = () => JSON.stringify(Object.assign({ app: 'maille', v: 1 }, S), null, 2);
+  $('copyJson').addEventListener('click', () => {
+    navigator.clipboard.writeText(json()).then(() => toast('Settings copied'), () => { $('jsonBox').value = json(); $('jsonBox').select(); toast('Select and copy the settings below'); });
+  });
+  $('saveJson').addEventListener('click', () => saveFile(`maille-${S.scene}-settings.json`, json()));
+  $('loadJson').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) f.text().then((t) => { $('jsonBox').value = t; applyJson(); }); });
+  function applyJson() {
+    try { const d = JSON.parse($('jsonBox').value); delete d.app; delete d.v; applyState(d); fillPresets(); toast('Settings applied'); }
+    catch { toast('That JSON could not be read'); }
+  }
+  $('applyJson').addEventListener('click', applyJson);
+  $('resetAll').addEventListener('click', () => { applyState(defaults()); fillPresets('b0'); toast('Reset to defaults'); });
+
+  // ---------- embed ----------
+  const SITE = /^https?:/.test(location.protocol) ? location.origin : '__SITE_ORIGIN__';
+  let embedKind = 'script';
+  function embedCode() {
+    const cfg = AF.compact(S), [w, h] = FORMATS[S.format];
+    delete cfg.format;
+    const json = JSON.stringify(cfg);
+    const b = AF.b64.encode(json);
+    if (embedKind === 'iframe') return `<iframe src="${SITE}/e.html?c=${b}" style="display:block;width:100%;aspect-ratio:${w}/${h};border:0" loading="lazy" title="Maille scene"></iframe>`;
+    return `<script src="${SITE}/maille.js" defer><\/script>\n<maille-scene config='${json.replace(/'/g, '&#39;')}' style="display:block;width:100%;aspect-ratio:${w}/${h}"></maille-scene>`;
+  }
+  let embedT = 0;
+  function refreshEmbed() {
+    clearTimeout(embedT);
+    embedT = setTimeout(() => {
+      $('embedBox').value = embedCode();
+      $('openEmbed').href = 'e.html?c=' + AF.b64.encode(JSON.stringify(Object.assign(AF.compact(S), { format: S.format })));
+      $('embedNote').textContent = S.scene === 'image'
+        ? 'Image scenes use a file from your computer, which an embed cannot carry. Use Text or another scene for embeds.'
+        : 'Paste it into Framer, Webflow, Notion or any HTML page. The scene keeps every setting you see here.';
+    }, 120);
+  }
+  $('embedKind').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    embedKind = b.dataset.v;
+    for (const x of $('embedKind').children) x.setAttribute('aria-pressed', String(x === b));
+    refreshEmbed();
+  });
+  $('copyEmbed').addEventListener('click', () => {
+    const code = embedCode();
+    navigator.clipboard.writeText(code).then(() => toast('Embed copied'), () => { $('embedBox').select(); toast('Select and copy the code above'); });
+  });
+
+  window.maille = window.ascii = { engine, get state() { return S; }, seek(t) { setPlay(false); simT = t; engine.render(ctx, t); } };
+
+  applyFormat(); buildStaticUI(); fillPresets(); fit(); loadFont(S.font); refreshEmbed();
+  if (document.fonts) document.fonts.ready.then(() => engine.refresh());
+  requestAnimationFrame(tick);
+})();
+</script>
+
+</body>
+</html>

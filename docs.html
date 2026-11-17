@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Maille Docs</title>
+<meta name="description" content="Embed animated ASCII scenes from Maille in any website.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+  /* Layout: single reading column, live scene as the opener, code blocks scroll on their own. */
+  :root {
+    --bg: #08090a; --surface: #0e0f11; --line: #1f2125; --fg: #e7e8ea; --muted: #80858d; --accent: #5ec8e0;
+    --ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 var(--ui);
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 24px 64px;
+  }
+  main { max-width: 760px; margin: 0 auto; display: grid; gap: 40px; }
+  nav { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+  nav a { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line); }
+  nav a:hover { border-color: var(--fg); }
+  .brand { font-weight: 500; border: 0 !important; }
+  h1 { font-size: 32px; line-height: 1.15; margin: 0 0 8px; font-weight: 700; text-wrap: balance; }
+  h2 { font-size: 18px; margin: 0 0 10px; font-weight: 500; }
+  p { margin: 0 0 12px; color: #c9cbcf; max-width: 65ch; }
+  .lead { color: var(--muted); }
+  maille-scene { width: 100%; aspect-ratio: 16 / 9; }
+  pre { margin: 0 0 12px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; overflow-x: auto; font: 13px/1.55 var(--mono); color: #d6d8db; }
+  code { font-family: var(--mono); font-size: 13px; }
+  p code, td code { background: var(--surface); border: 1px solid var(--line); padding: 1px 5px; }
+  .table { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 400; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .grid figure { margin: 0; display: grid; gap: 6px; }
+  .grid maille-scene { aspect-ratio: 16 / 10; }
+  figcaption { font: 12px var(--mono); color: var(--muted); }
+  a { color: var(--fg); }
+</style>
+</head>
+<body>
+<main>
+  <nav><a class="brand" href="./">Maille</a><a href="./">Open the studio</a></nav>
+
+  <section>
+    <h1>Animated ASCII scenes for any website</h1>
+    <p class="lead">Tune a scene in the studio, copy the embed, paste it where you build. One script, no dependencies, about 60 KB.</p>
+    <maille-scene preset="golden-hour"></maille-scene>
+  </section>
+
+  <section>
+    <h2>Script embed</h2>
+    <p>Works in any HTML page, Webflow (Embed element) and Framer (Embed component, HTML mode). The studio's <strong>Copy embed</strong> button writes this for you with your settings inside <code>config</code>.</p>
+<pre><code>&lt;script src="https://SITE/maille.js" defer&gt;&lt;/script&gt;
+&lt;maille-scene preset="alpenglow" style="display:block;width:100%;aspect-ratio:16/9"&gt;&lt;/maille-scene&gt;</code></pre>
+    <p>The scene fills its element. Give it a size with CSS (width plus <code>aspect-ratio</code> or a height). It pauses when scrolled out of view or when the tab is hidden, and shows a still frame for visitors who prefer reduced motion.</p>
+  </section>
+
+  <section>
+    <h2>Iframe embed</h2>
+    <p>For tools that only accept a URL (Notion, some page builders). The settings travel in the address.</p>
+<pre><code>&lt;iframe src="https://SITE/e.html?preset=alpine-day"
+        style="width:100%;aspect-ratio:16/9;border:0" loading="lazy"&gt;&lt;/iframe&gt;</code></pre>
+  </section>
+
+  <section>
+    <h2>Attributes</h2>
+    <div class="table"><table>
+      <thead><tr><th>Attribute</th><th>Value</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td><code>preset</code></td><td>name below</td><td>Start from a built-in scene.</td></tr>
+        <tr><td><code>config</code></td><td>JSON</td><td>Settings copied from the studio. Merged on top of the preset.</td></tr>
+        <tr><td><code>speed</code></td><td>number</td><td>Playback speed, 1 is normal.</td></tr>
+        <tr><td><code>paused</code></td><td>present or absent</td><td>Holds the current frame.</td></tr>
+        <tr><td><code>motion</code></td><td><code>always</code></td><td>Keeps animating even when the visitor prefers reduced motion.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>Presets</h2>
+    <div class="grid">
+      <figure><maille-scene preset="alpenglow"></maille-scene><figcaption>alpenglow</figcaption></figure>
+      <figure><maille-scene preset="alpine-day"></maille-scene><figcaption>alpine-day</figcaption></figure>
+      <figure><maille-scene preset="day-cycle"></maille-scene><figcaption>day-cycle</figcaption></figure>
+      <figure><maille-scene preset="night-ocean"></maille-scene><figcaption>night-ocean</figcaption></figure>
+      <figure><maille-scene preset="sharks"></maille-scene><figcaption>sharks</figcaption></figure>
+      <figure><maille-scene preset="type" config='{"text":"HELLO"}'></maille-scene><figcaption>type</figcaption></figure>
+    </div>
+    <p style="margin-top:12px">Also available: <code>golden-hour</code>, <code>fine-grain</code>.</p>
+  </section>
+
+  <section>
+    <h2>JavaScript</h2>
+<pre><code>const scene = document.querySelector('maille-scene');
+scene.set({ agDaylight: 1, agBirds: 9 });   // change any setting live
+scene.pause(); scene.seek(12.5);             // exact frame at 12.5 s
+scene.play();
+scene.config;                                // full resolved settings
+
+// Without the element
+const engine = Maille.create({ scene: 'waves', width: 1920, height: 1080, cols: 160 });
+engine.render(canvas.getContext('2d'), 3.2);</code></pre>
+  </section>
+</main>
+<script src="maille.js"></script>
+<script>
+  // Show the real address in code samples
+  if (/^https?:/.test(location.protocol)) document.querySelectorAll('pre code').forEach((c) => { c.textContent = c.textContent.replace(/https:\/\/SITE/g, location.origin); });
+</script>
+</body>
+</html>
