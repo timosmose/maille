@@ -505,7 +505,7 @@
     const seg = $('sceneSeg'); seg.innerHTML = '';
     for (const [id, label] of SCENES) {
       const b = document.createElement('button'); b.textContent = label; b.dataset.v = id;
-      b.addEventListener('click', () => { S.scene = id; S.cols = SCENE_COLS[id] || S.cols; syncScene(); push(); buildSceneUI(); syncAll(); });
+      b.addEventListener('click', () => { S.scene = id; S.cols = SCENE_COLS[id] || S.cols; syncScene(); push(); buildSceneUI(); syncAll(); syncSrc(); });
       seg.appendChild(b);
     }
     syncScene();
@@ -537,7 +537,14 @@
   }
   function applyState(next) {
     S = AF.resolve(next);
-    applyFormat(); push(); buildStaticUI(); syncAll(); loadFont(S.font);
+    if (S.src) source = null;
+    applyFormat(); push(); buildStaticUI(); syncAll(); loadFont(S.font); syncSrc();
+  }
+  // Presets and saved states point to an image by URL; local files stay in memory only
+  function syncSrc() {
+    if (S.scene !== 'image' || !S.src) return;
+    const want = S.src;
+    AF.loadSrc(want).then((img) => { if (S.src === want) { source = img; push(); } }, () => toast('Image could not be loaded'));
   }
   $('presetSel').addEventListener('change', (e) => {
     const v = e.target.value;
@@ -574,7 +581,7 @@
   function loadMedia(file) {
     if (!file) return;
     const url = URL.createObjectURL(file);
-    const done = (el) => { source = el; S.scene = 'image'; syncScene(); push(); buildSceneUI(); };
+    const done = (el) => { source = el; S.scene = 'image'; S.src = ''; syncScene(); push(); buildSceneUI(); };
     if (file.type.startsWith('video/')) {
       const v = document.createElement('video'); v.muted = true; v.loop = true; v.playsInline = true; v.src = url;
       v.addEventListener('loadeddata', () => { v.play().catch(() => {}); done(v); }, { once: true });
@@ -676,7 +683,7 @@
     embedT = setTimeout(() => {
       $('embedBox').value = embedCode();
       $('openEmbed').href = 'e.html?c=' + AF.b64.encode(JSON.stringify(Object.assign(AF.compact(S), { format: S.format })));
-      $('embedNote').textContent = S.scene === 'image'
+      $('embedNote').textContent = S.scene === 'image' && !S.src
         ? 'Image scenes use a file from your computer, which an embed cannot carry. Use Text or another scene for embeds.'
         : 'Paste it into Framer, Webflow, Notion or any HTML page. The scene keeps every setting you see here.';
     }, 120);
@@ -694,7 +701,7 @@
 
   window.maille = window.ascii = { engine, get state() { return S; }, seek(t) { setPlay(false); simT = t; engine.render(ctx, t); } };
 
-  applyFormat(); buildStaticUI(); fillPresets(); fit(); loadFont(S.font); refreshEmbed();
+  applyFormat(); buildStaticUI(); fillPresets(); fit(); loadFont(S.font); refreshEmbed(); syncSrc();
   if (document.fonts) document.fonts.ready.then(() => engine.refresh());
   requestAnimationFrame(tick);
 })();

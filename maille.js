@@ -541,8 +541,14 @@
         if (!iw || !ih) return;
         if (src !== lastSrc || isVideo) {
           octx.fillStyle = '#000'; octx.fillRect(0, 0, sw, sh);
-          const sc = Math.max(sw / iw, sh / ih) * (isText ? 1 : o.size);
-          octx.drawImage(src, (sw - iw * sc) / 2, (sh - ih * sc) / 2, iw * sc, ih * sc);
+          if (isText) {
+            const sc = Math.max(sw / iw, sh / ih);
+            octx.drawImage(src, (sw - iw * sc) / 2, (sh - ih * sc) / 2, iw * sc, ih * sc);
+          } else {
+            // Cover in display pixels, then map to the cell buffer: cells are not square, so this keeps the picture's proportions
+            const sc = Math.max(o.width / iw, o.height / ih) * o.size, dw = iw * sc * sw / o.width, dh = ih * sc * sh / o.height;
+            octx.drawImage(src, (sw - dw) / 2, (sh - dh) / 2, dw, dh);
+          }
           lastSrc = src;
         }
         const px = octx.getImageData(0, 0, sw, sh).data, thr = o.threshold;
@@ -1006,6 +1012,8 @@
   const AF = root.AsciiField;
   if (!AF) return;
   const clone = (x) => JSON.parse(JSON.stringify(x));
+  // Relative image URLs (src) resolve against this file, so embeds on other sites find them
+  const BASE = (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) || (typeof location !== 'undefined' ? location.href : '');
   const SPECIES = { mix: ['grey', 'sand', 'hammer', 'grey'], grey: ['grey'], sand: ['sand'], hammer: ['hammer'] };
   const ENGINE_KEYS = Object.keys(AF.DEFAULTS).filter((k) => !['width', 'height', 'source', 'species', 'speed'].includes(k));
 
@@ -1016,6 +1024,7 @@
     return Object.assign(s, {
       scene: 'alpenglow', format: '16:9', speed: 1, speciesSet: 'mix', cols: 200, rampPreset: '@8%SX#t;:',
       gapAuto: true, gap: 1, inkAuto: true, ink: 0.5, bgAuto: true, background: '#050506', gridColor: '#121215',
+      src: '', // image scene: URL of the picture (embeddable, unlike a local file)
     });
   }
   // Fill a partial config with defaults (palettes merged colour by colour).
@@ -1059,7 +1068,29 @@
     'sharks': { name: 'Sharks', config: { scene: 'sharks', format: '3:4', cols: 56 } },
     'night-ocean': { name: 'Night ocean', config: { scene: 'waves', cols: 96, size: 1.3 } },
     'type': { name: 'Type', config: { scene: 'text', text: 'MAILLE', cols: 120 } },
+    'moo': { name: 'Moo', config: { scene: 'image', src: 'img/cow.jpg', cols: 160, threshold: 0.08 } },
+    'alpine-cow': { name: 'Alpine cow', config: { scene: 'image', src: 'img/alpine-cow.jpg', cols: 160, threshold: 0.08 } },
+    'meadow': { name: 'Meadow', config: { scene: 'image', src: 'img/meadow.jpg', cols: 180, threshold: 0.06 } },
   };
+  // Image sources by URL, loaded once and shared by every scene on the page
+  const srcCache = new Map();
+  function srcUrl(src) { try { return new URL(src, BASE).href; } catch (e) { return src; } }
+  function loadSrc(src) {
+    const url = srcUrl(src);
+    if (!srcCache.has(url)) {
+      const entry = { img: null };
+      entry.p = new Promise((res, rej) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.decoding = 'async';
+        img.onload = () => { entry.img = img; res(img); };
+        img.onerror = () => { srcCache.delete(url); rej(new Error('Maille: could not load ' + url)); };
+        img.src = url;
+      });
+      srcCache.set(url, entry);
+    }
+    return srcCache.get(url);
+  }
   const FONT_FAMILIES = {
     'JetBrains Mono': 'JetBrains+Mono:wght@400', 'IBM Plex Mono': 'IBM+Plex+Mono', 'Space Mono': 'Space+Mono',
     'Fira Code': 'Fira+Code', 'DM Mono': 'DM+Mono', 'Courier Prime': 'Courier+Prime',
@@ -1082,7 +1113,7 @@
     decode: (s) => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))),
   };
 
-  const Maille = Object.assign({}, AF, { configDefaults, resolve, compact, toEngine, PRESETS, ensureFont, b64, version: '1.0.0' });
+  const Maille = Object.assign({}, AF, { configDefaults, resolve, compact, toEngine, PRESETS, ensureFont, b64, loadSrc: (src) => loadSrc(src).p, version: '1.0.0' });
   root.Maille = Maille;
 
   if (typeof window === 'undefined' || !window.customElements || customElements.get('maille-scene')) return;
@@ -1141,6 +1172,20 @@
       if (sp != null && sp !== '') this._cfg.speed = parseFloat(sp);
       const opts = toEngine(this._cfg);
       opts.cols = this._effCols();
+      const want = this._cfg.scene === 'image' && this._cfg.src ? this._cfg.src : '';
+      this._pending = '';
+      if (want) {
+        const entry = loadSrc(want);
+        if (entry.img) opts.source = entry.img;
+        else {
+          this._pending = want;
+          entry.p.then((img) => {
+            if (this._pending !== want) return;
+            this._pending = '';
+            this._engine.set({ source: img }); this._draw();
+          }, (e) => { console.warn(e.message); if (this._pending === want) { this._pending = ''; this._draw(); } });
+        }
+      }
       if (!this._engine) this._engine = AF.create(Object.assign({ width: Math.max(2, this._cv.width), height: Math.max(2, this._cv.height) }, opts));
       else this._engine.set(opts);
       ensureFont(this._cfg.font).then(() => { this._engine.refresh(); this._draw(); });
@@ -1170,7 +1215,10 @@
       this._draw();
       this._raf = requestAnimationFrame(this._tick);
     }
-    _draw() { if (this._engine && this._cv.width > 2) this._engine.render(this._ctx, this._t); }
+    _draw() {
+      if (this._pending) { this._ctx.clearRect(0, 0, this._cv.width, this._cv.height); return; }
+      if (this._engine && this._cv.width > 2) this._engine.render(this._ctx, this._t);
+    }
   }
   customElements.define('maille-scene', MailleScene);
 })();
