@@ -266,6 +266,7 @@
       { type: 'file' },
       { k: 'threshold', label: 'Threshold', type: 'range', min: 0.02, max: 0.95, step: 0.01, fmt: f2 },
       { k: 'size', label: 'Zoom', type: 'range', min: 0.5, max: 3, step: 0.01, fmt: xx },
+      { k: 'animAmount', label: 'Motion', type: 'range', min: 0, max: 2, step: 0.05, fmt: xx },
       { k: 'color', label: 'Source colours', type: 'toggle' },
       { k: 'invert', label: 'Invert', type: 'toggle' },
     ]]],
@@ -434,6 +435,7 @@
     for (const r of controls) {
       const k = r.dataset.k;
       if (k === 'gap') r.hidden = S.gapAuto;
+      if (k === 'animAmount') r.hidden = !S.anim;
       if (k === 'ink') r.hidden = S.inkAuto;
       if (k === 'background') r.hidden = S.bgAuto;
       if (k === 'gridColor') r.hidden = !S.grid;
@@ -581,7 +583,7 @@
   function loadMedia(file) {
     if (!file) return;
     const url = URL.createObjectURL(file);
-    const done = (el) => { source = el; S.scene = 'image'; S.src = ''; syncScene(); push(); buildSceneUI(); };
+    const done = (el) => { source = el; S.scene = 'image'; S.src = ''; S.anim = null; syncScene(); push(); buildSceneUI(); };
     if (file.type.startsWith('video/')) {
       const v = document.createElement('video'); v.muted = true; v.loop = true; v.playsInline = true; v.src = url;
       v.addEventListener('loadeddata', () => { v.play().catch(() => {}); done(v); }, { once: true });

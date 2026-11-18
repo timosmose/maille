@@ -67,6 +67,8 @@
     glow: true,          // teal dot field
     glitch: 0.06,
     flicker: 2.4,
+    anim: null,          // image: light motion so a photo feels filmed { breathe, wind: [...], parts: [...] }
+    animAmount: 1,       // image: scales every motion amplitude (0 = still)
     // image / text
     source: null,        // HTMLImageElement | HTMLVideoElement | HTMLCanvasElement
     threshold: 0.32,
@@ -533,14 +535,69 @@
         if (isText || !o.source) makeText();
         lastSrc = null;
       }
+      /* Light motion on a still photo, all in image space (coordinates 0..1 of the picture), deterministic in t.
+       * wind:  [{ x0, x1, y0, y1, amp, up }]  rows sway sideways, more towards the bottom (or the top with up: true)
+       * parts: [{ x, y, rx, ry, kind, amp, f }] a soft-edged ellipse moved on top of the picture
+       *   kind: bob (nod), jaw (opens downwards), flick (occasional twitch), sway (lean) */
+      let fxc = null, fxg = null, pc = null, pg = null;
+      const wave = (t, f, ph) => Math.sin(t * f + ph) * 0.7 + Math.sin(t * f * 1.83 + ph * 2.1) * 0.3;
+      function animate(src, iw, ih, t) {
+        const W = Math.min(iw, 720), H = Math.max(1, Math.round(ih * W / iw)), a = o.anim, k = o.animAmount;
+        if (!fxc) { fxc = document.createElement('canvas'); pc = document.createElement('canvas'); }
+        if (fxc.width !== W || fxc.height !== H) { fxc.width = W; fxc.height = H; fxg = fxc.getContext('2d'); }
+        fxg.setTransform(1, 0, 0, 1, 0, 0);
+        fxg.drawImage(src, 0, 0, W, H);
+        const STRIP = 2, sy = ih / H;
+        (a.wind || []).forEach((w, wi) => {
+          const x = Math.round(w.x0 * W), ww = Math.round((w.x1 - w.x0) * W), y0 = Math.round(w.y0 * H), y1 = Math.round(w.y1 * H);
+          for (let y = y0; y < y1; y += STRIP) {
+            let d = (y - y0) / Math.max(1, y1 - y0); if (w.up) d = 1 - d;
+            const dx = w.amp * k * W * d * d * wave(t, w.f || 1.6, y * 0.045 + wi * 3);
+            fxg.drawImage(src, x * iw / W, y * sy, ww * iw / W, STRIP * sy, x + dx, y, ww, STRIP);
+          }
+        });
+        (a.parts || []).forEach((p, i) => {
+          const cx = p.x * W, cy = p.y * H, rx = p.rx * W, ry = p.ry * H, A = p.amp * k, f = p.f || 1;
+          let dx = 0, dy = 0, rot = 0, sy2 = 1, ox = cx, oy = cy;
+          if (p.kind === 'bob') { dy = A * H * wave(t, f, i); rot = A * 1.2 * wave(t, f * 0.71, i + 1); oy = cy + ry * 0.6; }
+          else if (p.kind === 'jaw') { sy2 = 1 + A * Math.pow(Math.max(0, Math.sin(t * f + i)), 2); oy = cy - ry * 0.7; }
+          else if (p.kind === 'flick') { rot = A * Math.pow(Math.max(0, Math.sin(t * f + i * 2.3)), 12) * Math.sin(t * 22); }
+          else if (p.kind === 'sway') { rot = A * wave(t, f, i * 1.7); oy = cy + ry * 0.9; }
+          const bw = Math.ceil(rx * 2.4), bh = Math.ceil(ry * 2.4), bx = cx - bw / 2, by = cy - bh / 2;
+          if (pc.width !== bw || pc.height !== bh) { pc.width = bw; pc.height = bh; pg = pc.getContext('2d'); }
+          else pg.clearRect(0, 0, bw, bh);
+          pg.globalCompositeOperation = 'source-over';
+          pg.setTransform(1, 0, 0, 1, -bx, -by);
+          pg.translate(ox + dx, oy + dy); pg.rotate(rot); pg.scale(1, sy2); pg.translate(-ox, -oy);
+          pg.drawImage(fxc, 0, 0);
+          // Feathered ellipse so the moved piece melts into the picture
+          pg.setTransform(1, 0, 0, ry / rx, bw / 2, bh / 2);
+          const gr = pg.createRadialGradient(0, 0, rx * 0.55, 0, 0, rx);
+          gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+          pg.globalCompositeOperation = 'destination-in';
+          pg.fillStyle = gr; pg.fillRect(-bw, -bw, bw * 2, bw * 2);
+          fxg.drawImage(pc, bx, by);
+        });
+        return fxc;
+      }
       function frame(t) {
         if (!octx) return;
         const src = isText || !o.source ? textCanvas : o.source;
         const iw = src.videoWidth || src.naturalWidth || src.width, ih = src.videoHeight || src.naturalHeight || src.height;
         const isVideo = !!src.videoWidth;
         if (!iw || !ih) return;
-        if (src !== lastSrc || isVideo) {
+        const live = !isText && !!o.source && !!o.anim && o.animAmount > 0;
+        if (src !== lastSrc || isVideo || live) {
           octx.fillStyle = '#000'; octx.fillRect(0, 0, sw, sh);
+          if (live) {
+            const fx = animate(src, iw, ih, t), k = o.animAmount, b = o.anim.breathe || 0;
+            // Slow camera breathing: tiny zoom and drift
+            const z = 1 + b * k * (0.5 + 0.5 * Math.sin(t * 0.31)), px0 = b * k * 0.4 * Math.sin(t * 0.19), py0 = b * k * 0.3 * Math.cos(t * 0.23);
+            const sc = Math.max(o.width / fx.width, o.height / fx.height) * o.size * z;
+            const dw = fx.width * sc * sw / o.width, dh = fx.height * sc * sh / o.height;
+            octx.drawImage(fx, (sw - dw) / 2 + px0 * sw, (sh - dh) / 2 + py0 * sh, dw, dh);
+            lastSrc = null;
+          } else
           if (isText) {
             const sc = Math.max(sw / iw, sh / ih);
             octx.drawImage(src, (sw - iw * sc) / 2, (sh - ih * sc) / 2, iw * sc, ih * sc);
@@ -549,7 +606,7 @@
             const sc = Math.max(o.width / iw, o.height / ih) * o.size, dw = iw * sc * sw / o.width, dh = ih * sc * sh / o.height;
             octx.drawImage(src, (sw - dw) / 2, (sh - dh) / 2, dw, dh);
           }
-          lastSrc = src;
+          if (!live) lastSrc = src;
         }
         const px = octx.getImageData(0, 0, sw, sh).data, thr = o.threshold;
         const useColor = o.color && !isText && !!o.source;
@@ -1068,9 +1125,30 @@
     'sharks': { name: 'Sharks', config: { scene: 'sharks', format: '3:4', cols: 56 } },
     'night-ocean': { name: 'Night ocean', config: { scene: 'waves', cols: 96, size: 1.3 } },
     'type': { name: 'Type', config: { scene: 'text', text: 'MAILLE', cols: 120 } },
-    'moo': { name: 'Moo', config: { scene: 'image', src: 'img/cow.jpg', cols: 160, threshold: 0.08 } },
-    'alpine-cow': { name: 'Alpine cow', config: { scene: 'image', src: 'img/alpine-cow.jpg', cols: 160, threshold: 0.08 } },
-    'meadow': { name: 'Meadow', config: { scene: 'image', src: 'img/meadow.jpg', cols: 180, threshold: 0.06 } },
+    'moo': { name: 'Moo', config: { scene: 'image', src: 'img/cow.jpg', cols: 160, threshold: 0.08, anim: {
+      breathe: 0.025,
+      wind: [{ x0: 0, x1: 0.36, y0: 0.62, y1: 1, amp: 0.008, f: 1.4 }, { x0: 0.6, x1: 1, y0: 0.35, y1: 0.75, amp: 0.006, f: 1.1, up: true }],
+      parts: [
+        { kind: 'bob', x: 0.5, y: 0.42, rx: 0.3, ry: 0.42, amp: 0.012, f: 0.9 },
+        { kind: 'jaw', x: 0.495, y: 0.66, rx: 0.11, ry: 0.11, amp: 0.16, f: 1.3 },
+        { kind: 'flick', x: 0.29, y: 0.43, rx: 0.1, ry: 0.12, amp: 0.12, f: 0.7 },
+        { kind: 'flick', x: 0.7, y: 0.48, rx: 0.1, ry: 0.12, amp: 0.12, f: 0.55 },
+      ] } } },
+    'alpine-cow': { name: 'Alpine cow', config: { scene: 'image', src: 'img/alpine-cow.jpg', cols: 160, threshold: 0.08, anim: {
+      breathe: 0.02,
+      wind: [{ x0: 0.8, x1: 1, y0: 0.48, y1: 1, amp: 0.008, f: 1.2, up: true }, { x0: 0.42, x1: 0.8, y0: 0.88, y1: 1, amp: 0.006, f: 1.5 }],
+      parts: [
+        { kind: 'bob', x: 0.24, y: 0.76, rx: 0.22, ry: 0.32, amp: 0.012, f: 0.8 },
+        { kind: 'flick', x: 0.14, y: 0.62, rx: 0.08, ry: 0.07, amp: 0.15, f: 0.6 },
+        { kind: 'flick', x: 0.38, y: 0.6, rx: 0.08, ry: 0.07, amp: 0.15, f: 0.47 },
+      ] } } },
+    'meadow': { name: 'Meadow', config: { scene: 'image', src: 'img/meadow.jpg', cols: 180, threshold: 0.06, anim: {
+      breathe: 0.025,
+      wind: [{ x0: 0, x1: 1, y0: 0.5, y1: 1, amp: 0.01, f: 1.3 }],
+      parts: [
+        { kind: 'sway', x: 0.1, y: 0.3, rx: 0.12, ry: 0.28, amp: 0.012, f: 0.7 },
+        { kind: 'sway', x: 0.88, y: 0.4, rx: 0.1, ry: 0.2, amp: 0.012, f: 0.6 },
+      ] } } },
   };
   // Image sources by URL, loaded once and shared by every scene on the page
   const srcCache = new Map();
