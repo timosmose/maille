@@ -628,9 +628,46 @@
   $('format').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; S.format = b.dataset.v; applyFormat(); save(); });
   $('shuffle').addEventListener('click', () => { S.seed = (Math.random() * 99999) | 0; push(); syncScene(); });
   document.addEventListener('keydown', (e) => {
-    if (e.code !== 'Space' || /INPUT|TEXTAREA|SELECT|BUTTON/.test(document.activeElement.tagName)) return;
+    if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomBy(1.15); return; }
+    if (e.key === '=' || e.key === '+') { e.preventDefault(); zoomBy(1 / 1.15); return; }
+    if (e.key === '0') { e.preventDefault(); zoomTo(SCENE_COLS[S.scene] || 96); return; }
+    if (e.code !== 'Space' || document.activeElement.tagName === 'BUTTON') return;
     e.preventDefault(); setPlay(!playing);
   });
+  // ---------- zoom: finer or coarser grain (columns) from the preview ----------
+  // Wheel or trackpad pinch over the scene, pinch on touch screens, - / + keys, 0 or double-click to reset
+  let zoomCols = null, zoomRaf = 0;
+  function zoomTo(c) {
+    zoomCols = Math.max(24, Math.min(360, c));
+    if (zoomRaf) return;
+    zoomRaf = requestAnimationFrame(() => {
+      zoomRaf = 0;
+      const c2 = Math.round(zoomCols / 2) * 2;
+      if (c2 === S.cols) return;
+      S.cols = c2; push();
+      syncAll();
+      toast(`${c2} columns`);
+    });
+  }
+  function zoomBy(f) { zoomTo((zoomCols != null && Math.abs(zoomCols - S.cols) < 2 ? zoomCols : S.cols) * f); }
+  frameEl.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const d = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+    zoomBy(Math.exp(d * (e.ctrlKey ? 0.01 : 0.0015)));
+  }, { passive: false });
+  frameEl.addEventListener('dblclick', () => zoomTo(SCENE_COLS[S.scene] || 96));
+  const touches = new Map(); let pinch0 = 0, pinchCols = 0;
+  const spread = () => { const [a, b] = [...touches.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  frameEl.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'touch') return; touches.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (touches.size === 2) { pinch0 = spread(); pinchCols = S.cols; } });
+  frameEl.addEventListener('pointermove', (e) => {
+    if (!touches.has(e.pointerId)) return;
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touches.size === 2 && pinch0 > 0) { e.preventDefault(); zoomTo(pinchCols * pinch0 / spread()); }
+  });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) frameEl.addEventListener(ev, (e) => { touches.delete(e.pointerId); if (touches.size < 2) pinch0 = 0; });
+  frameEl.style.touchAction = 'pan-y';
+  frameEl.title = 'Scroll or pinch to change the grain · double-click to reset';
   function tick(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (playing && !scrubbing) simT += dt * S.speed;
