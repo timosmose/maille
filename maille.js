@@ -1,7 +1,7 @@
 /*
  * ascii-field.js
  * Generic ASCII cell renderer (canvas 2D) with interchangeable scenes:
- *   sharks · waves · landscape · image (image, video or canvas source) · text
+ *   sharks · mantas · koi · birds · waves · landscape · image (image, video or canvas source) · text
  *
  * Deterministic for procedural scenes: render(ctx, t) depends only on options + t.
  *
@@ -28,29 +28,50 @@
   const TEAL = [0.3, 0.78, 0.92];
   const LX = -0.45, LY = -0.89;
 
+  // Top-down creatures. Every length is in body lengths (Lb): s runs 0 (head) → 1 (tail), a = distance from the spine.
   const SPECIES = {
     grey: {
-      tint: [0.86, 0.92, 1.06], width: 0.115, tail: 0.6,
+      plan: 'shark', tint: [0.86, 0.92, 1.06], width: 0.115, tailA: 0.05, tipDark: true,
       prof: [[0, 0], [0.03, 0.42], [0.1, 0.78], [0.24, 1], [0.42, 0.86], [0.62, 0.5], [0.8, 0.2], [0.9, 0.1], [1, 0.04]],
-      pect: [0.2, 0.4, 1.25], dorsal: [0.3, 0.4], second: [0.68, 0.72],
+      fin: [0.18, 0.31, 0.45, 0.31], dorsal: [0.3, 0.4], second: [0.68, 0.72],
       eye: [0.05, 0.085, 0.5, 0.82], gills: [0.13, 0.21],
     },
     sand: {
-      tint: [1.08, 0.95, 0.76], width: 0.135, tail: 0.5,
+      plan: 'shark', tint: [1.08, 0.95, 0.76], width: 0.135, tailA: 0.055,
       prof: [[0, 0], [0.03, 0.5], [0.1, 0.86], [0.26, 1], [0.45, 0.92], [0.62, 0.56], [0.8, 0.24], [0.9, 0.12], [1, 0.05]],
-      pect: [0.2, 0.38, 1.0], dorsal: [0.42, 0.5], second: [0.6, 0.66],
+      fin: [0.18, 0.3, 0.42, 0.27], dorsal: [0.42, 0.5], second: [0.6, 0.66],
       eye: [0.04, 0.07, 0.5, 0.82], gills: [0.12, 0.2],
     },
     hammer: {
-      tint: [0.78, 0.86, 0.98], width: 0.1, tail: 0.65,
+      plan: 'shark', tint: [0.78, 0.86, 0.98], width: 0.1, tailA: 0.05,
       prof: [[0, 0.25], [0.008, 2.0], [0.05, 2.0], [0.065, 0.42], [0.1, 0.6], [0.26, 0.95], [0.42, 0.82], [0.62, 0.46], [0.8, 0.18], [0.9, 0.09], [1, 0.04]],
-      pect: [0.22, 0.4, 1.35], dorsal: [0.3, 0.38], second: [0.7, 0.74],
+      fin: [0.2, 0.32, 0.46, 0.29], dorsal: [0.3, 0.38], second: [0.7, 0.74],
       eye: [0.01, 0.05, 0.86, 1.01], gills: [0.14, 0.22],
+    },
+    manta: {
+      plan: 'manta', tint: [0.72, 0.8, 0.96], width: 1,
+      prof: [[0.04, 0.06], [0.07, 0.13], [0.12, 0.3], [0.2, 0.58], [0.3, 0.86], [0.4, 1.02], [0.45, 1.04], [0.5, 0.92], [0.56, 0.66], [0.63, 0.4], [0.7, 0.2], [0.76, 0.1], [0.8, 0.05]],
+    },
+    koi: {
+      plan: 'koi', tint: [1.06, 1.04, 1], width: 0.13,
+      prof: [[0, 0.32], [0.025, 0.64], [0.07, 0.84], [0.12, 0.9], [0.2, 0.98], [0.3, 1], [0.42, 0.95], [0.54, 0.8], [0.64, 0.6], [0.72, 0.42], [0.78, 0.3], [0.82, 0.12], [0.84, 0]],
+    },
+    gull: {
+      plan: 'bird', tint: [0.95, 0.98, 1.04], wrist: 0.6, beat: 1.5, glide: 0.35, beatAmp: 0.9, dihedral: 0.1,
+      prof: [[0, 0], [0.03, 0.045], [0.08, 0.07], [0.15, 0.08], [0.3, 0.11], [0.5, 0.1], [0.65, 0.065], [0.72, 0.055], [0.9, 0.075], [1, 0.07]],
+      wing: [[0.2, 0], [0.18, 0.3], [0.2, 0.58], [0.34, 0.9], [0.5, 1.15], [0.55, 1.1], [0.5, 0.88], [0.46, 0.58], [0.5, 0.3], [0.52, 0]],
+    },
+    stork: {
+      plan: 'bird', tint: [1, 1, 1.02], wrist: 0.7, beat: 1.05, glide: 0.6, beatAmp: 0.75, dihedral: 0.06, legs: true,
+      prof: [[0, 0], [0.02, 0.01], [0.1, 0.014], [0.12, 0.024], [0.26, 0.032], [0.33, 0.065], [0.45, 0.085], [0.6, 0.075], [0.72, 0.045], [0.78, 0.025]],
+      wing: [[0.32, 0], [0.29, 0.4], [0.29, 0.85], [0.33, 1.05], [0.4, 1.13], [0.47, 1.1], [0.53, 1.02], [0.6, 0.85], [0.62, 0.4], [0.64, 0]],
     },
   };
 
+  const CONTOUR = ".,'`-_/\\|():;";
+
   const DEFAULTS = {
-    scene: 'sharks',     // sharks | waves | landscape | alpenglow | image | text
+    scene: 'sharks',     // sharks | mantas | koi | birds | waves | landscape | alpenglow | image | text
     width: 892, height: 1248,
     cols: 56, cellAspect: 1.5,
     seed: 7,
@@ -64,6 +85,11 @@
     gridColor: '#121215',
     grid: true,
     trails: true,        // sharks wake · wave spray · landscape mist
+    contour: true,       // creatures: shape-aware outline glyphs
+    contourChars: ".,'`-_/\\|():;",
+    ambient: 1,          // creatures in water: caustics + drifting particles
+    koiPads: 6,          // koi: lily pads floating on top
+    koiRipples: 1,       // koi: rings when a fish kisses the surface
     glow: true,          // teal dot field
     glitch: 0.06,
     flicker: 2.4,
@@ -189,179 +215,782 @@
     function putGlow(idx, I, t3) { if (I > glow[idx]) { glow[idx] = I; GR[idx] = t3[0]; GG[idx] = t3[1]; GB[idx] = t3[2]; } }
     function putDash(idx, a) { if (a > dash[idx]) dash[idx] = a; }
 
-    /* ---------------- Sharks ---------------- */
-    function Sharks() {
-      let sharks = [];
-      const smp = { s: 0, d: 0, hw: 0, e: 0, side: 1, i: 0 };
+    /* ---------------- Creatures: top-down swimmers and flyers ---------------- */
+    // Each plan gives the body (geo: is (s, a) inside, and which part) and its light (shade).
+    const KOI_TINTS = { white: [1.06, 1.04, 1], red: [1.36, 0.48, 0.26], black: [0.36, 0.38, 0.44], gold: [1.28, 0.98, 0.46], silver: [0.96, 1, 1.08], orange: [1.38, 0.74, 0.3], fin: [0.9, 0.97, 1] };
+    const DIRC = ['-', '\\', '|', '/'].map((d) => d.codePointAt(0));
+    // body glyph picked from the ramp by brightness (no per-frame jitter, so markings stay crisp)
+    function rampCh(val) { const R = cps(o.ramp || '@8%SX#t;:'), n = R.length; return R[clamp(Math.floor((1 - clamp(val, 0, 1)) * (n - 0.01)), 0, n - 1)]; }
+    const POND = [0.42, 0.76, 0.64], LEAF = [0.46, 0.72, 0.48], OLDLEAF = [0.95, 0.82, 0.42], UNDERSIDE = [0.9, 0.52, 0.5], DROP = [0.9, 1.04, 1.12], LOTUS_IN = [1.4, 1.02, 1.06], LOTUS = [1.45, 0.74, 0.9], POLLEN = [1.32, 1.12, 0.5];
+    function tri(ax, ay, bx, by, cx, cy, px, py) {
+      const d1 = (px - bx) * (ay - by) - (ax - bx) * (py - by), d2 = (px - cx) * (by - cy) - (bx - cx) * (py - cy), d3 = (px - ax) * (cy - ay) - (cx - ax) * (py - ay);
+      return !(((d1 < 0) || (d2 < 0) || (d3 < 0)) && ((d1 > 0) || (d2 > 0) || (d3 > 0)));
+    }
+    function inPoly(P, x, y) {
+      let c = false;
+      for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+        const xi = P[i][0], yi = P[i][1], xj = P[j][0], yj = P[j][1];
+        if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
+      }
+      return c;
+    }
+    function caustic(x, y, t) {
+      const f = 3.2 / Math.min(o.width, o.height);
+      const v = Math.abs(noise2(x * f + t * 0.21, y * f - t * 0.13, o.seed + 40) - noise2(x * f * 1.27 - t * 0.17, y * f * 1.27 + t * 0.19, o.seed + 41));
+      return v < 0.05 ? 1 - v / 0.05 : 0;
+    }
+    const PLANS = {
+      shark: {
+        rigid: false, reach: 0.4, amp: 0.085, yaw: 0.012, freq: 0.9, kw: 0.85, burst: 0.22, burstT: [5, 3], vel: 0.07, len: [0.3, 0.24], meander: [0.12, 0.22], wl: [3, 3],
+        geo(c, s, a, side) {
+          if (s < 0 || s > 1.01) return 0;
+          const sp = c.sp, hw = profile(sp.prof, s) * sp.width;
+          if (a < hw) return 1;
+          if (s > 0.84) { const k = (s - 0.84) / 0.16; if (a < sp.tailA * Math.pow(k, 1.1) * (1 + 0.25 * Math.abs(c.sweep)) + 0.004) return 3; }
+          return 0;
+        },
+        finAt: 0.26,
+        fins(c, s, a, side) {
+          const sp = c.sp, F = sp.fin, fl = c.flex * side;
+          if (s > F[0] - 0.01 && s < F[2] + 0.04 && a < F[3] * 1.1) {
+            // swept-back sickle: leading edge F0 → tip, trailing edge curves back in to F1
+            const tipS = F[2] + 0.01 * fl, tipA = F[3] * (1 + 0.04 * fl), k = a / tipA;
+            const lead = F[0] + (tipS - F[0]) * Math.pow(k, 1.25), trail = F[1] + (tipS + 0.015 - F[1]) * Math.pow(k, 0.7);
+            if (k <= 1 && s >= lead && s <= trail) return 2;
+          }
+          if (s > 0.58 && s < 0.72 && tri(0.6, 0, 0.7, sp.width * 0.58, 0.665, 0, s, a)) return 2;
+          return 0;
+        },
+        shade(c, q, out) {
+          const sp = c.sp, s = q.s, nl = q.nx * LX + q.ny * LY;
+          out.tint = sp.tint; out.kd = BODY;
+          if (q.reg === 1) {
+            const hw = profile(sp.prof, s) * sp.width, e = q.a / (hw || 1);
+            let val = 0.6 - e * e * 0.38 + nl * e * 0.3;
+            if (s > sp.dorsal[0] && s < sp.dorsal[1] && e < 0.32) { out.kd = HIGH; val = 1; }
+            else if (s > sp.second[0] && s < sp.second[1] && e < 0.3) val = Math.max(val, 0.85);
+            else if (s > sp.eye[0] && s < sp.eye[1] && e > sp.eye[2] && e < sp.eye[3]) { out.kd = MARK; val = 0; }
+            else if (s > sp.gills[0] && s < sp.gills[1] && e > 0.55) {
+              if (Math.floor(((s - sp.gills[0]) / (sp.gills[1] - sp.gills[0])) * 5) % 2 === 0) { out.kd = DARK; val *= 0.5; }
+            }
+            if (s > 0.85) val *= 0.85;
+            out.val = val;
+          } else if (q.reg === 2) {
+            const tip = q.a / sp.fin[3];
+            out.val = 0.5 - 0.16 * tip + nl * 0.14;
+            if (sp.tipDark && tip > 0.8) { out.kd = DARK; out.val *= 0.6; }
+          } else out.val = 0.42 + nl * 0.1;
+        },
+      },
+      koi: {
+        rigid: false, wander: true, reach: 0.4, amp: 0.09, yaw: 0.016, freq: 1.1, kw: 0.78, burst: 0.6, burstT: [3.5, 3], vel: 0.045, len: [0.24, 0.16], meander: [0, 0], wl: [1, 1],
+        geo(c, s, a, side) {
+          const sp = c.sp, bf = c.variety === 'butterfly';
+          if (s < 0) return a * a + s * s * 3 < 0.0016 ? 1 : 0;   // rounded snout
+          if (s > 1) return 0;
+          const hw = profile(sp.prof, s) * sp.width;
+          if (a < hw) return 1;
+          if (s > 0.76) {
+            // caudal fin: a forked fan that trails the body's sweep
+            const k = (s - 0.76) / 0.24, fan = 0.035 + (bf ? 0.18 : 0.13) * Math.pow(k, 0.75) * (1 + 0.22 * c.tailLag * side);
+            const fork = s > 0.86 && a < 0.075 * (s - 0.86) / 0.14;
+            if (a < fan && !fork) return 3;
+          }
+          return 0;
+        },
+        finAt: 0.2,
+        fins(c, s, a, side) {
+          const bf = c.variety === 'butterfly', fl = c.flex * side, spread = c.finSpread * (1 + 0.14 * fl);
+          const tipA = (bf ? 0.34 : 0.25) * spread, tipS = (bf ? 0.44 : 0.34) + 0.03 * fl + (1.1 - c.finSpread) * 0.07;
+          if (s > 0.12 && s < tipS + 0.06 && a < tipA * 1.05) {
+            // pectoral paddles: open while gliding, tucked in on each tail kick
+            const k = a / tipA;
+            if (k <= 1 && s >= 0.15 + (tipS - 0.15) * k * k && s <= 0.29 + (tipS + 0.04 - 0.29) * Math.sqrt(k)) return 2;
+          }
+          if (s > 0.5 && s < 0.72 && tri(0.52, 0, 0.67 + 0.02 * fl, bf ? 0.17 : 0.13, 0.62, 0, s, a)) return 5;
+          return 0;
+        },
+        shade(c, q, out) {
+          const s = q.s, a = q.a, nl = q.nx * LX + q.ny * LY, V = c.variety;
+          // body axis (head → tail) from the normal, for strokes that follow the fish
+          const ux = q.ny * q.side, uy = -q.nx * q.side;
+          out.kd = BODY;
+          let val, tint;
+          if (q.reg === 1) {
+            const hw = profile(c.sp.prof, s) * c.sp.width, e = a / (hw || 1), x = (q.side * a) / c.sp.width;
+            val = 0.68 - e * e * 0.3 + nl * e * 0.14;
+            const big = noise2(s * 2.6 + c.id * 13.7, x * 0.7 + 3, o.seed + c.id), fine = noise2(s * 11 + c.id * 3.1, x * 3 + 7, o.seed + 9 + c.id);
+            const patch = big + (fine - 0.5) * 0.1, body = s > 0.13 && s < 0.76, head = s > 0.03 && s < 0.12 && Math.abs(x) < 0.7;
+            tint = KOI_TINTS.white;
+            if (V === 'gold') tint = KOI_TINTS.gold;
+            else if (V === 'silver') tint = KOI_TINTS.silver;
+            else if (V === 'butterfly') tint = c.id % 2 ? KOI_TINTS.silver : KOI_TINTS.orange;
+            else if (V === 'tancho') tint = Math.hypot((s - 0.075) / 0.04, x / 0.48) < 1 ? KOI_TINTS.red : KOI_TINTS.white;
+            else if (V === 'showa') tint = patch > 0.56 && (body || head) ? KOI_TINTS.red : fine > 0.6 && s > 0.14 ? KOI_TINTS.white : KOI_TINTS.black;
+            else if (V === 'sanke') tint = body && fine > 0.7 && s > 0.2 && Math.abs(x) < 0.8 ? KOI_TINTS.black : (patch > 0.52 && body) || (head && big > 0.45) ? KOI_TINTS.red : KOI_TINTS.white;
+            else tint = (patch > 0.5 && body) || (head && big > 0.4) ? KOI_TINTS.red : KOI_TINTS.white;
+            if (tint === KOI_TINTS.black) val *= 0.72;
+            if (V === 'gold' || V === 'silver' || V === 'butterfly') val += 0.07;
+            // scales: diamond lattice catching the light, brighter on the lit flank
+            const sc = Math.abs(Math.sin(s * 95 + x * 6)) + Math.abs(Math.sin(s * 95 - x * 6));
+            val += (sc > 1.6 ? 0.07 : -0.02) * (0.6 + 0.4 * e);
+            // gill cover: a darker arc behind the head
+            if (s > 0.115 && s < 0.135 && e > 0.25) val *= 0.78;
+            // eyes on the sides of the head
+            if (s > 0.05 && s < 0.085 && e > 0.58 && e < 0.9) { out.kd = MARK; val = 0; }
+            // dorsal fin seen from above: a raised line down the back
+            else if (Math.abs(x) < 0.13 && s > 0.26 && s < 0.6) {
+              val = Math.max(val, 0.88);
+              out.ch = DIRC[((Math.round(Math.atan2(uy / ch, ux / cw) / (Math.PI / 4)) % 4) + 4) % 4];
+            }
+            // nostrils / mouth at the snout
+            else if (s < 0.025) val *= 0.85;
+            if (!out.ch) out.ch = rampCh(val);
+          } else {
+            // translucent fins with rays fanning from their root
+            let rx, ry, root;
+            if (q.reg === 3) { root = 0.76; rx = (s - root); ry = a; }
+            else if (q.reg === 2) { root = 0.2; rx = (s - root); ry = a - 0.08; }
+            else { root = 0.52; rx = (s - root); ry = a; }
+            const ra = Math.atan2(ry, rx), rays = Math.abs(Math.sin(ra * (q.reg === 3 ? 9 : 6)));
+            val = 0.5 + nl * 0.04 - Math.hypot(rx, ry) * (q.reg === 3 ? 0.7 : 0.6);
+            tint = V === 'gold' ? KOI_TINTS.gold : V === 'butterfly' && c.id % 2 === 0 ? KOI_TINTS.orange : V === 'showa' && q.reg === 2 ? KOI_TINTS.black : KOI_TINTS.fin;
+            if (rays < 0.3) {
+              val += 0.14;
+              const wx = ux * rx + q.nx * ry, wy = uy * rx + q.ny * ry;
+              out.ch = DIRC[((Math.round(Math.atan2(wy / ch, wx / cw) / (Math.PI / 4)) % 4) + 4) % 4];
+            } else out.ch = rampCh(val * 0.8);
+          }
+          out.val = val;
+          // deeper fish sink into the green water
+          let m = c.fog.get(tint);
+          if (!m) { const f = (1 - c.depth) * 0.5; m = [tint[0] * (1 - f) + POND[0] * f, tint[1] * (1 - f) + POND[1] * f, tint[2] * (1 - f) + POND[2] * f]; c.fog.set(tint, m); }
+          out.tint = m;
+        },
+        strokes(c, emit) {
+          // barbels at the corners of the mouth
+          const sw = 0.012 * Math.sin(c.flex * 2);
+          emit(c, -0.015, 0.035 + sw, KOI_TINTS.fin, 0.45, '`');
+          emit(c, -0.015, -0.035 - sw, KOI_TINTS.fin, 0.45, "'");
+        },
+      },
+      manta: {
+        rigid: true, reach: 1.15, burst: 0.1, burstT: [6, 3], vel: 0.06, len: [0.17, 0.13], meander: [0.25, 0.3], wl: [4, 4], bankK: 6, beat: 0.24,
+        theta(c, s) { return 0.55 * Math.sin(c.phi - s * 2.6); },
+        geo(c, s, a, side) {
+          if (s > -0.03 && s < 0.075 && a > 0.045 && a < 0.105) return 4;
+          if (s < 0.04 || s > 0.8) return 0;
+          const hw = profile(c.sp.prof, s), core = 0.13;
+          if (a <= core) return a < hw ? 1 : 0;
+          const f = Math.cos(this.theta(c, s)) * (1 - 0.12 * c.bank * side);
+          return core + (a - core) / f < hw ? 2 : 0;
+        },
+        shade(c, q, out) {
+          const s = q.s, a = q.a, nl = q.nx * LX + q.ny * LY, hw = profile(c.sp.prof, s), core = 0.13;
+          out.kd = BODY; out.tint = c.sp.tint;
+          if (q.reg === 4) { out.val = 0.5; return; }
+          let val = 0.4 + 0.08 * (1 - a / 1.04);
+          if (q.reg === 2) {
+            const w = clamp((a - core) / Math.max(0.05, hw - core), 0, 1);
+            val += 0.26 * Math.sin(this.theta(c, s)) * nl * w * 2;
+            if (w > 0.86) val *= 0.78;
+          } else val += 0.06 + nl * 0.05;
+          if (a > 0.12 && a < 0.55 && Math.abs(s - (0.13 + (a - 0.12) * 0.42)) < 0.05) { val = Math.max(val, 0.82); out.tint = [0.92, 0.98, 1.06]; }
+          if (s > 0.06 && s < 0.1 && a > 0.085 && a < 0.115) { out.kd = MARK; val = 0; }
+          if (a < 0.02 && s > 0.2 && s < 0.7) val = Math.max(val, 0.62);
+          out.val = val;
+        },
+        strokes(c, emit) {
+          for (let s = 0.8; s < 1.45; s += 0.035) {
+            const lat = 0.035 * Math.sin(c.phi * 0.8 - s * 7) * (s - 0.8);
+            emit(c, s, lat, c.sp.tint, 0.55 - (s - 0.8) * 0.4);
+          }
+        },
+      },
+      bird: {
+        rigid: true, reach: 1.25, burst: 0.08, burstT: [4, 3], vel: 0.13, len: [0.2, 0.12], meander: [0.4, 0.5], wl: [7, 6], bankK: 8, shadowMul: 2.8,
+        span(c, a, side) {
+          const f = c.f * (1 - 0.12 * c.bank * side), sp = c.sp;
+          let x = a / f;
+          if (x > sp.wrist) x = sp.wrist + (x - sp.wrist) / c.fold;
+          return x;
+        },
+        geo(c, s, a, side) {
+          const sp = c.sp;
+          if (s >= 0 && s <= 1 && a < profile(sp.prof, s)) return 1;
+          if (s < 0.15 || s > 0.62) return 0;
+          return inPoly(sp.wing, s, this.span(c, a, side)) ? 2 : 0;
+        },
+        shade(c, q, out) {
+          const sp = c.sp, s = q.s, nl = q.nx * LX + q.ny * LY;
+          out.kd = BODY; out.tint = sp.tint;
+          if (q.reg === 1) {
+            const hw = profile(sp.prof, s) || 0.01, e = q.a / hw;
+            out.val = 0.82 - e * e * 0.3 + nl * e * 0.2;
+            if (sp.legs && s < 0.11) { out.tint = [1.36, 0.46, 0.3]; out.val = 0.6; }
+            else if (!sp.legs && s < 0.03) { out.tint = [1.3, 1.05, 0.4]; out.val = 0.7; }
+            return;
+          }
+          const x = this.span(c, q.a, q.side), tilt = c.sinT * nl;
+          let val = (sp.legs ? 0.82 : 0.58) + 0.3 * tilt;
+          val *= 0.9 + 0.1 * Math.sin(x * 55);
+          if (sp.legs) { if (s > 0.42 + x * 0.04 || x > 1.05) { out.kd = DARK; val = 0.14; } }
+          else if (x > 1.0) { out.kd = DARK; val = 0.1; }
+          else if (s < 0.27 + x * 0.12 && x > 0.15) val += 0.12;
+          out.val = val;
+        },
+        strokes(c, emit) {
+          if (!c.sp.legs) return;
+          for (let s = 0.76; s < 1.02; s += 0.03) emit(c, s, 0, [1.36, 0.46, 0.3], 0.6);
+        },
+      },
+    };
+    const CREATURE_SCENES = {
+      sharks: { water: true, glowTint: TEAL, species: null },
+      mantas: { water: true, glowTint: [0.28, 0.62, 0.98], species: ['manta'], bg: ['#03060c', '#05101c', '#02040a'], grid: '#0b1119' },
+      koi: { water: true, pond: true, trails: false, glowTint: [0.3, 0.7, 0.55], species: ['koi'], varieties: ['kohaku', 'tancho', 'showa', 'gold', 'butterfly', 'sanke', 'kohaku', 'silver'], bg: ['#030705', '#06110d', '#020504'], grid: '#0b130f' },
+      birds: { water: false, glowTint: [0.5, 0.56, 0.66], species: ['gull', 'gull', 'stork', 'gull'], trails: false },
+    };
 
-      function makeLane(sh, k, start) {
-        const r = mulberry32(ihash(o.seed * 31 + 7, sh.id, k + 1000));
+    function Creatures(name) {
+      const def = CREATURE_SCENES[name] || CREATURE_SCENES.sharks;
+      let list = [], pads = [];
+      const wv = [0, 0, 0, 0];
+      // Wandering path (pond fish): steered by noise, turned back before the edges; built once, extended lazily
+      function wanderTo(c, U) {
+        const p = c.path, st = p.step, Lb = c.Lb;
+        while (p.len < U + st * 2) {
+          const n = p.x.length - 1, x = p.x[n], y = p.y[n];
+          // head for a wandering target inside the pond, with a little noise on top
+          const seg = Math.floor((n * st) / (Lb * 5)), tx = o.width * clamp(p.hx + (rnd3(seg, p.seed, 31) - 0.5) * 0.6, 0.25, 0.75), ty = o.height * clamp(p.hy + (rnd3(seg, p.seed, 32) - 0.5) * 0.6, 0.25, 0.75);
+          let dth = Math.atan2(ty - y, tx - x) - p.th;
+          dth = ((dth % TAU) + TAU * 1.5) % TAU - Math.PI;
+          let k = dth * 0.6 / Lb + (noise1((n * st) / (Lb * 2.2), p.seed) - 0.5) * 1.6 / Lb;
+          const dx = Math.cos(p.th), dy = Math.sin(p.th), look = Lb * 1.8, mg = Lb * 0.3;
+          const qx = x + dx * look, qy = y + dy * look, out = Math.max(mg - qx, qx - (o.width - mg), mg - qy, qy - (o.height - mg), 0);
+          if (out > 0) { const cx = o.width / 2 - x, cy = o.height / 2 - y; k += (dx * cy - dy * cx >= 0 ? 1 : -1) * (0.6 + 1.5 * Math.min(1, out / Lb)) / Lb; }
+          k = clamp(k, -1.2 / Lb, 1.2 / Lb);
+          p.th += k * st;
+          p.x.push(x + Math.cos(p.th) * st); p.y.push(y + Math.sin(p.th) * st);
+          p.len += st;
+        }
+      }
+      function wanderAt(c, u, w) {
+        const p = c.path, f = clamp(u, 0, p.len) / p.step, i = Math.min(Math.floor(f), p.x.length - 2), t = f - i;
+        w[0] = p.x[i] + (p.x[i + 1] - p.x[i]) * t; w[1] = p.y[i] + (p.y[i + 1] - p.y[i]) * t;
+        const i0 = Math.max(0, i - 2), i1 = Math.min(p.x.length - 1, i + 3), tx = p.x[i1] - p.x[i0], ty = p.y[i1] - p.y[i0], l = Math.hypot(tx, ty) || 1;
+        w[2] = tx / l; w[3] = ty / l;
+      }
+      function Uof(c, T) { const P = c.plan; return c.offset + c.vel * (T + (P.burst / c.bw) * Math.sin(c.bw * T + c.bp)); }
+      const q = { s: 0, a: 0, side: 1, nx: 0, ny: 0, reg: 0 };
+      const out = { kd: BODY, val: 0, tint: TEAL };
+      const vec = new Float32Array(6);
+
+      function laneM(L, u) { return L.mA * Math.sin(u * L.mk + L.mp) + L.mA2 * Math.sin(u * L.mk2 + L.mp2); }
+      function laneDM(L, u) { return L.mA * L.mk * Math.cos(u * L.mk + L.mp) + L.mA2 * L.mk2 * Math.cos(u * L.mk2 + L.mp2); }
+      function makeLane(c, k, start) {
+        const r = mulberry32(ihash(o.seed * 31 + 7, c.id, k + 1000)), P = c.plan;
         const th = ((o.heading + (r() * 2 - 1) * o.spread) * Math.PI) / 180;
         const L = { k, start };
         L.dx = Math.cos(th); L.dy = Math.sin(th); L.px = -L.dy; L.py = L.dx;
-        L.cx = o.width * (0.2 + 0.6 * r()); L.cy = o.height * (0.2 + 0.6 * r());
-        L.mA = sh.Lb * (0.12 + 0.22 * r()); L.mk = TAU / (sh.Lb * (3 + 3 * r())); L.mp = r() * TAU;
+        const half = 0.5 * (Math.abs(L.px) * o.width + Math.abs(L.py) * o.height) * 0.8;
+        const lat = (((c.slot + 0.5 + (r() - 0.5) * 0.7) / o.count) * 2 - 1) * half, along = (r() - 0.5) * 0.3 * Math.min(o.width, o.height);
+        L.cx = o.width / 2 + L.px * lat + L.dx * along; L.cy = o.height / 2 + L.py * lat + L.dy * along;
+        L.mA = c.Lb * (P.meander[0] + P.meander[1] * r()); L.mk = TAU / (c.Lb * (P.wl[0] + P.wl[1] * r())); L.mp = r() * TAU;
+        L.mA2 = L.mA * 0.3 * r(); L.mk2 = L.mk * (2.1 + r()); L.mp2 = r() * TAU;
         let t0 = -Infinity, t1 = Infinity;
-        const m = sh.margin;
-        for (const [c, d, W] of [[L.cx, L.dx, o.width], [L.cy, L.dy, o.height]]) {
+        const m = c.margin;
+        for (const [cc, d, W] of [[L.cx, L.dx, o.width], [L.cy, L.dy, o.height]]) {
           if (Math.abs(d) < 1e-9) continue;
-          let a = (-m - c) / d, b = (W + m - c) / d;
+          let a = (-m - cc) / d, b = (W + m - cc) / d;
           if (a > b) { const tmp = a; a = b; b = tmp; }
           t0 = Math.max(t0, a); t1 = Math.min(t1, b);
         }
         L.t0 = t0; L.t1 = t1;
-        L.len = t1 - t0 + sh.Lb + sh.Lb * 1.2 * r();
-        sh.lanes[k] = L;
+        L.len = t1 - t0 + c.Lb + c.Lb * 1.2 * r();
+        c.lanes[k] = L;
         return L;
       }
-      function laneAt(sh, U) {
-        const Ls = sh.lanes;
-        if (!Ls.length) makeLane(sh, 0, 0);
-        let k = Math.min(sh.k, Ls.length - 1);
+      function laneAt(c, U) {
+        const Ls = c.lanes;
+        if (!Ls.length) makeLane(c, 0, 0);
+        let k = Math.min(c.k, Ls.length - 1);
         while (k > 0 && U < Ls[k].start) k--;
-        while (U >= Ls[k].start + Ls[k].len) { if (k + 1 >= Ls.length) makeLane(sh, k + 1, Ls[k].start + Ls[k].len); k++; }
-        sh.k = k;
+        while (U >= Ls[k].start + Ls[k].len) { if (k + 1 >= Ls.length) makeLane(c, k + 1, Ls[k].start + Ls[k].len); k++; }
+        c.k = k;
         return Ls[k];
       }
       function build() {
-        sharks = [];
+        list = [];
         const m = Math.min(o.width, o.height);
-        const list = o.species && o.species.length ? o.species : DEFAULTS.species;
+        const names = def.species || (o.species && o.species.length ? o.species : DEFAULTS.species);
         for (let i = 0; i < o.count; i++) {
           const r = mulberry32(ihash(o.seed, i, 99));
           const depth = o.count === 1 ? 0.8 : clamp(0.15 + 0.85 * ((i + r() * 0.6) / o.count), 0, 1);
-          const sp = SPECIES[list[i % list.length]] || SPECIES.grey;
-          const Lb = o.size * (0.3 + 0.24 * depth) * m, W = Lb * sp.width, n = o.spinePoints;
-          const sh = {
-            id: i, sp, depth, Lb, W, n, vel: o.speed * m * 0.07 * (0.75 + 0.5 * r()),
-            margin: W * 2.6 + Lb * 0.5 + cw * 2,
+          const sp = SPECIES[names[i % names.length]] || SPECIES.grey, P = PLANS[sp.plan];
+          const Lb = o.size * (P.len[0] + P.len[1] * depth) * m, n = o.spinePoints;
+          const c = {
+            id: i, slot: (i * 7 + o.seed) % o.count, sp, plan: P, depth, Lb, n, vel: m * P.vel * (0.75 + 0.5 * r()) * (0.7 + 0.3 * depth),
+            margin: Lb * (P.reach + 0.6) + cw * 2,
+            bw: TAU / (P.burstT[0] + P.burstT[1] * r()), bp: r() * TAU, beatMul: 0.85 + 0.3 * r(),
+            variety: def.varieties ? def.varieties[i % def.varieties.length] : null,
             pts: new Float32Array(n * 2), arc: new Float32Array(n), seg: new Float32Array(n),
             ux: new Float32Array(n), uy: new Float32Array(n), total: 1, lanes: [], k: 0, uHead: 0, U: 0,
+            hx: 0, hy: 0, dx: 0, dy: -1, flex: 0, sweep: 0, bank: 0, phi: 0, f: 1, fold: 1, sinT: 0,
           };
-          const first = makeLane(sh, 0, 0);
-          sh.offset = (first.t1 - first.t0) * (0.3 + 0.4 * r());
-          sharks.push(sh);
+          c.fog = new Map();
+          const first = makeLane(c, 0, 0);
+          // start somewhere on screen, staggered so they do not travel as one block
+          const ext = Math.abs(first.dx) * o.width + Math.abs(first.dy) * o.height;
+          c.offset = clamp(-first.t0 + (((i * 0.618 + r() * 0.3) % 1) - 0.5) * 0.9 * ext, 0, first.t1 - first.t0);
+          if (P.wander) {
+            const rr = mulberry32(ihash(o.seed, i, 777));
+            // each fish keeps to its own part of the pond (golden-angle spread), so they cross without piling up
+            const hx = 0.5 + 0.32 * Math.sqrt((i + 0.5) / o.count) * Math.cos(i * 2.39996 + o.seed), hy = 0.5 + 0.32 * Math.sqrt((i + 0.5) / o.count) * Math.sin(i * 2.39996 + o.seed);
+            c.path = { hx, hy, x: [o.width * hx], y: [o.height * hy], th: rr() * TAU, step: Math.max(2, Lb / 40), len: 0, seed: ihash(o.seed, i, 778) % 9973 };
+            c.offset = Lb * 1.4;
+          }
+          list.push(c);
         }
-        sharks.sort((a, b) => a.depth - b.depth);
+        list.sort((a, b) => a.depth - b.depth);
+        pads = [];
+        if (def.pond) {
+          // Pads gather in a few clusters toward the edges of the pond, big ones under small ones
+          const n = Math.max(0, Math.round(o.koiPads)), nc = Math.max(1, Math.round(n / 2.6));
+          for (let i = 0; i < n; i++) {
+            const cl = i % nc, rc = mulberry32(ihash(o.seed, cl, 4241)), r = mulberry32(ihash(o.seed, i, 4242));
+            const ca = rc() * TAU + cl * (TAU / nc), cr = 0.27 + 0.12 * rc();
+            const cx = o.width * (0.5 + Math.cos(ca) * cr), cy = o.height * (0.5 + Math.sin(ca) * cr * (o.width / o.height > 1.2 ? 0.9 : 1));
+            const first = i < nc, R = m * o.size * (first ? 0.075 + 0.025 * r() : 0.04 + 0.03 * r());
+            const da = r() * TAU, dd = first ? 0 : m * o.size * (0.08 + 0.05 * r());
+            const drops = [];
+            for (let k = 0, nd = Math.floor(r() * 3); k < nd; k++) drops.push([(r() - 0.5) * 1.1, (r() - 0.5) * 1.1, r() * TAU]);
+            pads.push({
+              x: cx + Math.cos(da) * dd, y: cy + Math.sin(da) * dd, R, rot: r() * TAU, spin: (r() - 0.5) * 0.025, ph: r() * TAU,
+              age: r() < 0.35 ? 0.4 + 0.6 * r() : r() * 0.2, curl: r() * TAU, curlAmt: r() < 0.5 ? 0.6 + 0.4 * r() : 0, drops,
+              flower: first && cl % 2 === 0, bud: !first && r() < 0.45 ? r() * TAU : null, stem: r() * TAU,
+            });
+          }
+          pads.sort((a, b) => b.R - a.R);
+        }
       }
-      function resetLanes() { for (const sh of sharks) { sh.lanes = []; sh.k = 0; } }
-      function pose(sh, t) {
-        const U = sh.offset + sh.vel * t, L = laneAt(sh, U);
-        sh.U = U;
-        const n = sh.n, ds = sh.Lb / (n - 1), uHead = L.t0 + (U - L.start);
-        sh.uHead = uHead;
-        const phase = (U / sh.Lb) * TAU * 0.9, P = sh.pts;
+      function resetLanes() { for (const c of list) { c.lanes = []; c.k = 0; } }
+
+      function pose(c, T) {
+        const P = c.plan, bt = c.bw * T + c.bp;
+        const U = Uof(c, T), L = P.wander ? null : laneAt(c, U);
+        const push = 1 + 0.6 * P.burst * Math.cos(bt);
+        c.U = U; c.push = push;
+        if (P.wander) wanderTo(c, U);
+        const n = c.n, ds = c.Lb / (n - 1), uHead = P.wander ? U : L.t0 + (U - L.start);
+        c.uHead = uHead;
+        const phase = (U / c.Lb) * TAU * (P.freq || 1), Pt = c.pts;
+        c.flex = Math.sin(phase * 0.5 + c.id); c.sweep = Math.sin(phase - TAU * (P.kw || 0.85));
+        c.tailLag = Math.sin(phase - TAU * (P.kw || 0.85) - 0.9);
+        c.finSpread = clamp(1 - 0.9 * (push - 1), 0.62, 1.22);
         for (let i = 0; i < n; i++) {
-          const u = uHead - i * ds, arg = u * L.mk + L.mp;
-          const m = L.mA * Math.sin(arg), dm = L.mA * L.mk * Math.cos(arg);
-          let tx = L.dx + L.px * dm, ty = L.dy + L.py * dm;
-          const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+          const u = uHead - i * ds;
+          let tx, ty, bx, by;
+          if (P.wander) { wanderAt(c, u, wv); bx = wv[0]; by = wv[1]; tx = wv[2]; ty = wv[3]; }
+          else {
+            const m = laneM(L, u), dm = laneDM(L, u);
+            tx = L.dx + L.px * dm; ty = L.dy + L.py * dm;
+            const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+            bx = L.cx + L.dx * u + L.px * m; by = L.cy + L.dy * u + L.py * m;
+          }
           const k = i / (n - 1);
-          const w = sh.Lb * (0.012 + 0.085 * k * k) * Math.sin(phase - k * TAU * 0.85);
-          P[i * 2] = L.cx + L.dx * u + L.px * m - ty * w;
-          P[i * 2 + 1] = L.cy + L.dy * u + L.py * m + tx * w;
+          const w = P.rigid ? 0 : c.Lb * (P.yaw + P.amp * k * k * push) * Math.sin(phase - k * TAU * P.kw);
+          Pt[i * 2] = bx - ty * w;
+          Pt[i * 2 + 1] = by + tx * w;
         }
         let acc = 0;
-        sh.minX = sh.maxX = P[0]; sh.minY = sh.maxY = P[1];
         for (let i = 0; i < n; i++) {
-          const x = P[i * 2], y = P[i * 2 + 1];
-          if (x < sh.minX) sh.minX = x; if (x > sh.maxX) sh.maxX = x;
-          if (y < sh.minY) sh.minY = y; if (y > sh.maxY) sh.maxY = y;
-          sh.arc[i] = acc;
+          const x = Pt[i * 2], y = Pt[i * 2 + 1];
+          c.arc[i] = acc;
           if (i < n - 1) {
-            const dx = P[i * 2 + 2] - x, dy = P[i * 2 + 3] - y, L2 = Math.hypot(dx, dy) || 1e-6;
-            sh.seg[i] = L2; sh.ux[i] = dx / L2; sh.uy[i] = dy / L2; acc += L2;
+            const dx = Pt[i * 2 + 2] - x, dy = Pt[i * 2 + 3] - y, L2 = Math.hypot(dx, dy) || 1e-6;
+            c.seg[i] = L2; c.ux[i] = dx / L2; c.uy[i] = dy / L2; acc += L2;
           }
         }
-        sh.total = acc || 1;
-      }
-      function sample(sh, x, y) {
-        const P = sh.pts, n = sh.n;
-        let best = 1e18, bi = 0, bh = 0, side = 1;
-        for (let i = 0; i < n - 1; i++) {
-          const ax = P[i * 2], ay = P[i * 2 + 1], dx = P[i * 2 + 2] - ax, dy = P[i * 2 + 3] - ay;
-          const L2 = dx * dx + dy * dy || 1;
-          let h = ((x - ax) * dx + (y - ay) * dy) / L2;
-          h = h < 0 ? 0 : h > 1 ? 1 : h;
-          const qx = ax + dx * h - x, qy = ay + dy * h - y, d2 = qx * qx + qy * qy;
-          if (d2 < best) { best = d2; bi = i; bh = h; side = dx * (y - ay) - dy * (x - ax) > 0 ? 1 : -1; }
+        c.total = acc || 1;
+        // Rigid frame (head + axis) for flyers and rays; bank from the path curvature
+        c.hx = Pt[0]; c.hy = Pt[1];
+        const mi = n >> 1, ax = Pt[0] - Pt[mi * 2], ay = Pt[1] - Pt[mi * 2 + 1], al = Math.hypot(ax, ay) || 1;
+        c.dx = ax / al; c.dy = ay / al;
+        const cr = c.ux[0] * c.uy[n - 2] - c.uy[0] * c.ux[n - 2], dt = c.ux[0] * c.ux[n - 2] + c.uy[0] * c.uy[n - 2];
+        c.bank = clamp(Math.atan2(cr, dt) * (P.bankK || 0), -1, 1);
+        if (P === PLANS.manta) c.phi = TAU * P.beat * T * c.beatMul + c.id * 1.7;
+        if (P === PLANS.bird) {
+          const sp = c.sp, g = smooth(clamp((noise1(T * 0.22 + c.id * 7.3, o.seed + 5) - sp.glide) / 0.3 + 0.5, 0, 1));
+          c.phi = TAU * sp.beat * T * c.beatMul + c.id * 1.7;
+          const th = g * sp.beatAmp * Math.sin(c.phi) + sp.dihedral;
+          c.f = Math.max(0.3, Math.cos(th)); c.sinT = Math.sin(th);
+          c.fold = 1 - 0.3 * g * Math.max(0, Math.cos(c.phi));
         }
-        const s = (sh.arc[bi] + bh * sh.seg[bi]) / sh.total, d = Math.sqrt(best), hw = halfWidth(sh.sp, s, sh.W);
-        smp.s = s; smp.d = d; smp.hw = hw; smp.e = d / (hw || 1); smp.side = side; smp.i = bi;
-        return d < hw;
+        // bbox
+        const ext = c.Lb * (P.reach + 0.15);
+        let minX = Pt[0], maxX = Pt[0], minY = Pt[1], maxY = Pt[1];
+        for (let i = 1; i < n; i++) { const x = Pt[i * 2], y = Pt[i * 2 + 1]; if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+        c.minX = minX - ext; c.maxX = maxX + ext; c.minY = minY - ext; c.maxY = maxY + ext;
       }
-      function pathXY(L, u, out) {
-        const m = L.mA * Math.sin(u * L.mk + L.mp);
-        out[0] = L.cx + L.dx * u + L.px * m; out[1] = L.cy + L.dy * u + L.py * m;
+      // Local coordinates of a point → q, returns the body part (0 = outside)
+      function sample(c, x, y) {
+        if (c.plan.rigid) {
+          const rx = x - c.hx, ry = y - c.hy, along = -(rx * c.dx + ry * c.dy), lat = rx * -c.dy + ry * c.dx;
+          q.s = along / c.Lb; q.side = lat > 0 ? 1 : -1; q.a = Math.abs(lat) / c.Lb;
+          q.nx = -c.dy * q.side; q.ny = c.dx * q.side;
+        } else {
+          const P = c.pts, n = c.n;
+          let best = 1e18, bi = 0, bh = 0, side = 1;
+          for (let i = 0; i < n - 1; i++) {
+            const ax = P[i * 2], ay = P[i * 2 + 1], dx = P[i * 2 + 2] - ax, dy = P[i * 2 + 3] - ay;
+            const L2 = dx * dx + dy * dy || 1;
+            const h0 = ((x - ax) * dx + (y - ay) * dy) / L2, h = h0 < 0 ? 0 : h0 > 1 ? 1 : h0;
+            const qx = ax + dx * h - x, qy = ay + dy * h - y, d2 = qx * qx + qy * qy;
+            if (d2 < best) { best = d2; bi = i; bh = (i === 0 && h0 < 0) || (i === n - 2 && h0 > 1) ? h0 : h; side = dx * (y - ay) - dy * (x - ax) > 0 ? 1 : -1; }
+          }
+          // past the head or the tail tip, s runs below 0 / above 1 and a is the lateral distance only
+          if (bh < 0 || bh > 1) { const ax = P[bi * 2], ay = P[bi * 2 + 1]; best = Math.pow((x - ax) * -c.uy[bi] + (y - ay) * c.ux[bi], 2); }
+          q.s = (c.arc[bi] + bh * c.seg[bi]) / c.total; q.a = Math.sqrt(best) / c.Lb; q.side = side;
+          q.nx = -c.uy[bi] * side; q.ny = c.ux[bi] * side;
+          q.reg = c.plan.geo(c, q.s, q.a, q.side);
+          if (!q.reg && c.plan.fins) {
+            // Fins: rigid frame at the fin root, so both sides stay symmetric while the body bends
+            const fa = c.plan.finAt, i0 = Math.round(fa * (c.n - 1)), Ox = P[i0 * 2], Oy = P[i0 * 2 + 1], ux = c.ux[i0], uy = c.uy[i0];
+            const s2 = fa + ((x - Ox) * ux + (y - Oy) * uy) / c.Lb, lat = (x - Ox) * -uy + (y - Oy) * ux, sd = lat > 0 ? 1 : -1;
+            const r2 = c.plan.fins(c, s2, Math.abs(lat) / c.Lb, sd);
+            if (r2) { q.s = s2; q.a = Math.abs(lat) / c.Lb; q.side = sd; q.nx = -uy * sd; q.ny = ux * sd; q.reg = r2; }
+          }
+          return q.reg;
+        }
+        q.reg = c.plan.geo(c, q.s, q.a, q.side);
+        return q.reg;
       }
-      function frame(t) {
-        for (const sh of sharks) pose(sh, t);
-        const ox = [-0.3 * cw, 0.3 * cw, -0.3 * cw, 0.3 * cw], oy = [-0.3 * ch, -0.3 * ch, 0.3 * ch, 0.3 * ch];
-        const reach = Math.max(cw, ch);
-        for (let k = 0; k < sharks.length; k++) {
-          const sh = sharks[k], sp = sh.sp, pad = sh.W * 2.6 + reach, v = 0.6 + 0.4 * sh.depth;
-          const c0 = Math.max(0, Math.floor((sh.minX - pad) / cw)), c1 = Math.min(cols - 1, Math.floor((sh.maxX + pad) / cw));
-          const r0 = Math.max(0, Math.floor((sh.minY - pad) / ch)), r1 = Math.min(rows - 1, Math.floor((sh.maxY + pad) / ch));
-          for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
-            const xc = c * cw + cw / 2, yc = r * ch + ch / 2;
-            const inC = sample(sh, xc, yc);
-            if (!inC && smp.d > smp.hw + reach) continue;
-            const s = smp.s, e = smp.e, side = smp.side, si = smp.i, d = smp.d;
-            let cnt = inC ? 1 : 0;
-            for (let q = 0; q < 4; q++) if (sample(sh, xc + ox[q], yc + oy[q])) cnt++;
-            if (!cnt) continue;
-            const idx = r * cols + c;
-            if (cnt >= 3 && inC) {
-              const nx = -sh.uy[si] * side, ny = sh.ux[si] * side;
-              let val = 0.6 - e * e * 0.38 + (nx * LX + ny * LY) * e * 0.3, kd = BODY;
-              if (d > profile(sp.prof, s) * sh.W * 1.02) val *= 0.8;
-              if (s > sp.dorsal[0] && s < sp.dorsal[1] && e < 0.32) { kd = HIGH; val = 1; }
-              else if (s > sp.second[0] && s < sp.second[1] && e < 0.3) val = Math.max(val, 0.85);
-              else if (s > sp.eye[0] && s < sp.eye[1] && e > sp.eye[2] && e < sp.eye[3]) { kd = MARK; val = 0; }
-              else if (s > sp.gills[0] && s < sp.gills[1] && e > 0.55) {
-                if (Math.floor(((s - sp.gills[0]) / (sp.gills[1] - sp.gills[0])) * 5) % 2 === 0) { kd = DARK; val *= 0.5; }
-              }
-              if (s > 0.85) val *= 0.85;
-              put(idx, kd, clamp(val, 0, 1), v, sp.tint);
-            } else {
-              if (kind[idx] >= BODY) continue;
-              put(idx, EDGE, cnt / 5, v, sp.tint);
+      function worldOf(c, s, lat, outXY) {
+        // rigid creatures only: local (s, lateral) → world
+        outXY[0] = c.hx - c.dx * s * c.Lb - c.dy * lat * c.Lb;
+        outXY[1] = c.hy - c.dy * s * c.Lb + c.dx * lat * c.Lb;
+      }
+
+      // Shape-aware outlines: pick the glyph whose ink best matches the 2×3 coverage of the cell
+      let ctKey = '', ctCodes = null, ctVecs = null;
+      function contourTable() {
+        glyphMask(46);
+        const chars = o.contourChars || CONTOUR, key = atlasKey + '|' + chars;
+        if (key === ctKey) return;
+        ctKey = key; ctCodes = cps(chars);
+        const gw = atlas.gw, gh = atlas.gh, mx = new Float32Array(6);
+        ctVecs = ctCodes.map((code) => {
+          const m = glyphMask(code), v = new Float32Array(6), n = new Float32Array(6);
+          for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
+            const i = Math.min(2, Math.floor((y / ch) * 3)) * 2 + Math.min(1, Math.floor((x / cw) * 2));
+            v[i] += m[y * gw + x] / 255; n[i]++;
+          }
+          for (let i = 0; i < 6; i++) { v[i] /= n[i] || 1; if (v[i] > mx[i]) mx[i] = v[i]; }
+          return v;
+        });
+        for (const v of ctVecs) for (let i = 0; i < 6; i++) v[i] /= mx[i] || 1;
+      }
+      function bestGlyph() {
+        let best = 1e9, bi = 0;
+        for (let g = 0; g < ctVecs.length; g++) {
+          const G = ctVecs[g];
+          let d = 0;
+          for (let i = 0; i < 6; i++) { const e = vec[i] - G[i]; d += e * e; }
+          if (d < best) { best = d; bi = g; }
+        }
+        return ctCodes[bi];
+      }
+      const DIR = ['-', '\\', '|', '/'], DIRC = DIR.map((d) => d.codePointAt(0));
+      const tmpXY = [0, 0];
+      function emit(c, s, lat, tint, val, chr) {
+        worldOf(c, s, lat, tmpXY);
+        const col = Math.floor(tmpXY[0] / cw), row = Math.floor(tmpXY[1] / ch);
+        if (col < 0 || row < 0 || col >= cols || row >= rows) return;
+        const idx = row * cols + col;
+        if (kind[idx] >= BODY) return;
+        const ang = Math.atan2(c.dy / ch, c.dx / cw);
+        const dch = DIR[((Math.round(ang / (Math.PI / 4)) % 4) + 4) % 4];
+        putChar(idx, EDGE, val, 0.55 + 0.45 * c.depth, tint, chr || dch);
+      }
+
+      // Generic cell rasterizer for a shape given by inside(x, y); shade(x, y) fills out
+      function raster(x0, y0, x1, y1, inside, shade, v, ox, oy, under) {
+        const c0 = Math.max(0, Math.floor(x0 / cw)), c1 = Math.min(cols - 1, Math.floor(x1 / cw));
+        const r0 = Math.max(0, Math.floor(y0 / ch)), r1 = Math.min(rows - 1, Math.floor(y1 / ch));
+        const useContour = o.contour !== false;
+        for (let r = r0; r <= r1; r++) for (let col = c0; col <= c1; col++) {
+          const xc = col * cw + cw / 2, yc = r * ch + ch / 2, inC = inside(xc, yc);
+          let cnt = inC ? 1 : 0;
+          for (let k = 0; k < 4; k++) if (inside(xc + ox[k], yc + oy[k])) cnt++;
+          if (!cnt) continue;
+          const idx = r * cols + col;
+          let cov = 1, sx0 = xc, sy0 = yc, glyph = 0;
+          if (cnt < 5) {
+            vec.fill(0);
+            let tot = 0, found = inC;
+            for (let sy = 0; sy < 6; sy++) for (let sx = 0; sx < 4; sx++) {
+              const x = col * cw + (sx + 0.5) * cw / 4, y = r * ch + (sy + 0.5) * ch / 6;
+              if (inside(x, y)) { vec[(sy >> 1) * 2 + (sx >> 1)] += 0.25; tot++; if (!found) { sx0 = x; sy0 = y; found = true; } }
+            }
+            cov = tot / 24;
+            if (cov < 0.05) continue;
+            if (useContour && cov < 0.5) glyph = bestGlyph();
+          }
+          out.ch = 0;
+          shade(sx0, sy0);
+          if (cov >= 0.5) { put(idx, out.kd, clamp(out.val, 0, 1), v, out.tint); if (out.ch) chrO[idx] = out.ch; }
+          else if (under || kind[idx] < BODY) {
+            if (glyph) putChar(idx, EDGE, clamp(0.35 + cov * 0.9, 0, 1), v, out.tint, String.fromCodePoint(glyph));
+            else put(idx, EDGE, cov, v, out.tint);
+          }
+        }
+      }
+      // Koi pond: rings on the surface, lily pads floating over the fish
+      function ring(x, y, R, a) {
+        const N = Math.max(8, Math.ceil((TAU * R) / (Math.min(cw, ch) * 0.7)));
+        for (let i = 0; i < N; i++) {
+          const th = (i / N) * TAU, col = Math.floor((x + Math.cos(th) * R) / cw), r = Math.floor((y + Math.sin(th) * R) / ch);
+          if (col < 0 || r < 0 || col >= cols || r >= rows) continue;
+          const idx = r * cols + col;
+          if (kind[idx] >= BODY) continue;
+          const ang = Math.atan2(Math.cos(th) / ch, -Math.sin(th) / cw);
+          putChar(idx, EDGE, 0.1 + 0.5 * a, 0.45 + 0.4 * a, [0.78, 0.98, 0.92], DIR[((Math.round(ang / (Math.PI / 4)) % 4) + 4) % 4]);
+        }
+      }
+      function pond(T, ox, oy) {
+        const rip = o.koiRipples == null ? 1 : o.koiRipples;
+        if (rip > 0) {
+          const LIFE = 3.2;
+          // a fish near the surface comes up for a kiss now and then
+          for (const c of list) {
+            if (c.depth < 0.45) continue;
+            const per = 6.5 + (c.id % 3) * 2.3, sh = c.id * 2.9, slot = Math.floor((T + sh) / per), tb = slot * per - sh, age = T - tb;
+            if (age < 0 || age > LIFE || rnd3(slot, c.id, o.seed + 5) > 0.6 * rip) continue;
+            wanderAt(c, Uof(c, tb), wv);
+            const a = 1 - age / LIFE, R = c.Lb * (0.05 + 0.17 * age);
+            ring(wv[0], wv[1], R, a);
+            if (R > c.Lb * 0.2) ring(wv[0], wv[1], R - c.Lb * 0.13, a * 0.6);
+          }
+          // and a few drops or insects elsewhere
+          const nd = Math.round(2 * rip);
+          for (let i = 0; i < nd; i++) {
+            const per = 5 + i * 1.7, slot = Math.floor((T + i * 1.3) / per), age = T + i * 1.3 - slot * per;
+            if (age > 3 || rnd3(slot, i, o.seed + 6) > 0.7) continue;
+            const x = o.width * (0.1 + 0.8 * rnd3(slot, i, o.seed + 7)), y = o.height * (0.1 + 0.8 * rnd3(slot, i, o.seed + 8));
+            const m = Math.min(o.width, o.height);
+            ring(x, y, m * (0.008 + 0.03 * age), (1 - age / 3) * 0.7);
+          }
+        }
+        // Lily pads (on top of everything)
+        for (const pd of pads) {
+          // drift, slow turn, and a nudge when a fish passes underneath
+          let R = pd.R, px = pd.x + Math.sin(T * 0.05 + pd.ph) * R * 0.3, py = pd.y + Math.cos(T * 0.04 + pd.ph) * R * 0.2, rot = pd.rot + T * pd.spin, stir = 0;
+          for (const c of list) {
+            const dx = px - c.pts[0], dy = py - c.pts[1], d = Math.hypot(dx, dy) || 1, reach2 = R + c.Lb * 0.45;
+            if (d < reach2) { const f = Math.pow(1 - d / reach2, 2) * (0.5 + 0.5 * c.depth); px += (dx / d) * f * R * 0.14; py += (dy / d) * f * R * 0.14; rot += f * 0.12; stir = Math.max(stir, f); }
+          }
+          if (stir > 0.15) ring(px, py, R * (1.1 + 0.05 * Math.sin(T * 3 + pd.ph)), Math.min(1, stir) * 0.8);
+          let lr = 0, la = 0, ldx = 0, ldy = 0;
+          const inside = (x, y) => {
+            const dx = x - px, dy = y - py, r = Math.hypot(dx, dy);
+            if (r > R * 1.05) return false;
+            let ang = Math.atan2(dy, dx) - rot;
+            ang = ((ang % TAU) + TAU * 1.5) % TAU - Math.PI;
+            if (Math.abs(ang) < 0.22 * Math.min(1, r / (R * 0.25)) && r > R * 0.05) return false;   // the notch
+            lr = r / R; la = ang; ldx = dx / R; ldy = dy / R;
+            return r < R * (1 + 0.03 * Math.sin(ang * 5 + pd.ph) + 0.015 * Math.sin(ang * 13));
+          };
+          const leafTint = (k) => [LEAF[0] + (OLDLEAF[0] - LEAF[0]) * k, LEAF[1] + (OLDLEAF[1] - LEAF[1]) * k, LEAF[2] + (OLDLEAF[2] - LEAF[2]) * k];
+          const tintNew = leafTint(pd.age * 0.35), tintRim = leafTint(Math.min(1, pd.age * 1.2));
+          const fRot = rot * 0.5 + pd.ph;
+          const shade = (x, y) => {
+            inside(x, y);
+            out.kd = BODY; out.tint = lr > 0.7 && pd.age > 0.3 ? tintRim : tintNew;
+            let val = 0.28 + 0.1 * (1 - lr) - (ldx * LX + ldy * LY) * 0.12;
+            // radial veins from the centre, drawn as strokes pointing out
+            out.ch = 0;
+            const vein = lr > 0.16 && lr < 0.84 && Math.abs(Math.sin(la * 4.5)) < 0.2;
+            if (vein) { val += 0.08 * (1 - lr); const g = Math.atan2(ldy / ch, ldx / cw); out.ch = DIRC[((Math.round(g / (Math.PI / 4)) % 4) + 4) % 4]; }
+            else { const RCp = cps(o.ramp || '@8%SX#t;:'), n = RCp.length; out.ch = RCp[clamp(Math.floor((1 - clamp(val * 1.3, 0, 1)) * (n - 0.01)), 0, n - 1)]; }
+            // waxy sheen that slides as the leaf turns
+            const hx = ldx + 0.32 + 0.08 * Math.sin(T * 0.3 + pd.ph), hy = ldy + 0.4;
+            val += 0.2 * Math.exp(-(hx * hx + hy * hy) / 0.05);
+            // curled rim: the lit lip, and the red underside showing
+            if (pd.curlAmt && lr > 0.8) {
+              let dc = la + rot - pd.curl; dc = ((dc % TAU) + TAU * 1.5) % TAU - Math.PI;
+              const k = Math.max(0, 1 - Math.abs(dc) / 0.9) * pd.curlAmt;
+              if (k > 0.25) { if (lr > 0.92) { out.tint = UNDERSIDE; val = 0.34 + 0.1 * k; } else val += 0.16 * k; }
+            } else if (lr > 0.9) val *= 0.75;
+            // water drops catching the light
+            for (const d of pd.drops) {
+              const ddx = ldx - d[0] * Math.cos(rot) + d[1] * Math.sin(rot), ddy = ldy - d[0] * Math.sin(rot) - d[1] * Math.cos(rot);
+              if (Math.hypot(ddx * R, ddy * R) < Math.max(R * 0.07, cw * 0.55) && Math.sin(T * 1.3 + d[2]) > -0.3) { out.kd = HIGH; out.tint = DROP; val = 1; out.ch = 0; }
+            }
+            if (pd.flower) {
+              // lotus: outer pink petals, paler inner petals, yellow seed pod
+              const fx = ldx + 0.15, fy = ldy - 0.12, fr = Math.hypot(fx, fy), fa = Math.atan2(fy, fx);
+              const outer = Math.pow(Math.max(0, Math.cos((fa - fRot) * 4)), 0.6), inner = Math.pow(Math.max(0, Math.cos((fa - fRot) * 3 + 0.5)), 0.6);
+              if (fr < 0.11) { out.kd = HIGH; out.tint = POLLEN; val = 1; out.ch = 0; }
+              else if (fr < 0.22 + 0.12 * inner) { out.tint = LOTUS_IN; val = 0.82 + 0.12 * inner - fr * 0.5; out.ch = 0; }
+              else if (fr < 0.32 + 0.2 * outer) { out.tint = LOTUS; val = 0.5 + 0.25 * outer + 0.3 * (0.5 - fr); out.ch = 0; }
+            }
+            out.val = val;
+          };
+          raster(px - R * 1.1, py - R * 1.1, px + R * 1.1, py + R * 1.1, inside, shade, 1, ox, oy, true);
+          // a closed bud floating at the edge
+          if (pd.bud != null) {
+            const ba = pd.bud + rot * 0.3, br = Math.max(R * 0.3, cw * 1.3), bx = px + Math.cos(ba) * (R + br * 0.9), by = py + Math.sin(ba) * (R + br * 0.9);
+            raster(bx - br, by - br * 1.6, bx + br, by + br * 1.6, (x, y) => { const dx = (x - bx) / br, dy = (y - by) / br; return dx * dx + dy * dy * 0.45 < 1 - Math.max(0, -dy) * 0.25; },
+              (x, y) => { out.kd = BODY; out.ch = 0; out.tint = LOTUS; out.val = 0.55 + 0.25 * ((by - y) / br); }, 1, ox, oy, true);
+          }
+          // pad shadow on the floor
+          if (o.glow) {
+            const gx = R * 0.45, gy = R * 0.6;
+            const c0 = Math.max(0, Math.floor((px - R + gx) / cw)), c1 = Math.min(cols - 1, Math.floor((px + R + gx) / cw));
+            const r0 = Math.max(0, Math.floor((py - R + gy) / ch)), r1 = Math.min(rows - 1, Math.floor((py + R + gy) / ch));
+            for (let r = r0; r <= r1; r++) for (let col = c0; col <= c1; col++) {
+              const idx = r * cols + col;
+              if (!kind[idx] && inside(col * cw + cw / 2 - gx, r * ch + ch / 2 - gy)) putGlow(idx, 0.45, def.glowTint);
             }
           }
         }
-        if (o.glow) for (const sh of sharks) {
-          const pad = sh.W * 2.6 + reach, gx = cw * (1.2 + 2.2 * sh.depth), gy = ch * (0.8 + 1.4 * sh.depth);
-          const c0 = Math.max(0, Math.floor((sh.minX + gx - pad) / cw)), c1 = Math.min(cols - 1, Math.floor((sh.maxX + gx + pad) / cw));
-          const r0 = Math.max(0, Math.floor((sh.minY + gy - pad) / ch)), r1 = Math.min(rows - 1, Math.floor((sh.maxY + gy + pad) / ch));
-          for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
-            const idx = r * cols + c;
-            if (kind[idx] || !sample(sh, c * cw + cw / 2 - gx, r * ch + ch / 2 - gy)) continue;
-            putGlow(idx, ((1 - smp.e) * 0.8 + 0.2) * (0.5 + 0.5 * sh.depth), TEAL);
+      }
+      // Stems going down into the water, under the fish
+      function stems(T) {
+        for (const pd of pads) {
+          const R = pd.R, x0 = pd.x + Math.sin(T * 0.05 + pd.ph) * R * 0.3, y0 = pd.y + Math.cos(T * 0.04 + pd.ph) * R * 0.2;
+          const len = R * 2.2, N = Math.ceil(len / (Math.min(cw, ch) * 0.6));
+          for (let i = 0; i < N; i++) {
+            const k = i / N, a = pd.stem + 0.5 * Math.sin(k * 3 + T * 0.2 + pd.ph), x = x0 + Math.cos(a) * len * k, y = y0 + Math.sin(a) * len * k * 0.8;
+            const col = Math.floor(x / cw), r = Math.floor(y / ch);
+            if (col < 0 || r < 0 || col >= cols || r >= rows) continue;
+            const idx = r * cols + col;
+            if (kind[idx]) continue;
+            const ang = Math.atan2(Math.sin(a) * 0.8 / ch, Math.cos(a) / cw);
+            putChar(idx, EDGE, 0.2, 0.5 - 0.3 * k, POND, DIR[((Math.round(ang / (Math.PI / 4)) % 4) + 4) % 4]);
           }
         }
-        if (o.trails) {
-          const gap = ch * 1.25, K = 26, tmp = [0, 0];
-          for (const sh of sharks) for (let back = 0; back < 2; back++) {
-            const L = sh.lanes[sh.k - back];
+      }
+
+      function frame(t) {
+        const T = t * o.speed, amb = o.ambient == null ? 1 : o.ambient;
+        for (const c of list) pose(c, T);
+        const useContour = o.contour !== false;
+        if (useContour) contourTable();
+        const ox = [-0.3 * cw, 0.3 * cw, -0.3 * cw, 0.3 * cw], oy = [-0.3 * ch, -0.3 * ch, 0.3 * ch, 0.3 * ch];
+        const reach = Math.max(cw, ch);
+        if (def.pond) stems(T);
+        for (const c of list) {
+          const P = c.plan, v = 0.55 + 0.45 * c.depth;
+          const c0 = Math.max(0, Math.floor((c.minX - reach) / cw)), c1 = Math.min(cols - 1, Math.floor((c.maxX + reach) / cw));
+          const r0 = Math.max(0, Math.floor((c.minY - reach) / ch)), r1 = Math.min(rows - 1, Math.floor((c.maxY + reach) / ch));
+          for (let r = r0; r <= r1; r++) for (let col = c0; col <= c1; col++) {
+            const xc = col * cw + cw / 2, yc = r * ch + ch / 2;
+            const inC = sample(c, xc, yc) ? 1 : 0;
+            const cs = q.s, ca = q.a, cside = q.side, cnx = q.nx, cny = q.ny, creg = q.reg;
+            let cnt = inC;
+            for (let k = 0; k < 4; k++) if (sample(c, xc + ox[k], yc + oy[k])) cnt++;
+            if (!cnt) continue;
+            const idx = r * cols + col;
+            let cov = cnt / 5, glyph = 0, hs = 0, ha = 0, hside = 1, hnx = 0, hny = 0, hreg = 0;
+            if (cnt < 5) {
+              vec.fill(0);
+              let tot = 0;
+              for (let sy = 0; sy < 6; sy++) for (let sx = 0; sx < 4; sx++) {
+                if (sample(c, col * cw + (sx + 0.5) * cw / 4, r * ch + (sy + 0.5) * ch / 6)) {
+                  vec[(sy >> 1) * 2 + (sx >> 1)] += 0.25; tot++;
+                  if (!hreg) { hs = q.s; ha = q.a; hside = q.side; hnx = q.nx; hny = q.ny; hreg = q.reg; }
+                }
+              }
+              cov = tot / 24;
+              if (cov < 0.05) continue;
+              if (useContour && cov < 0.5) glyph = bestGlyph();
+            }
+            if (inC) { q.s = cs; q.a = ca; q.side = cside; q.nx = cnx; q.ny = cny; q.reg = creg; }
+            else if (hreg) { q.s = hs; q.a = ha; q.side = hside; q.nx = hnx; q.ny = hny; q.reg = hreg; }
+            else continue;
+            out.ch = 0;
+            P.shade(c, q, out);
+            let val = out.val;
+            if (def.water && amb > 0) val += amb * 0.24 * caustic(xc, yc, T) * (0.4 + 0.6 * c.depth);
+            if (cnt === 5 || cov >= 0.5) { put(idx, out.kd, clamp(val, 0, 1), v, out.tint); if (out.ch && out.kd !== MARK) chrO[idx] = out.ch; }
+            else {
+              if (kind[idx] >= BODY) continue;
+              if (glyph) putChar(idx, EDGE, clamp(0.35 + cov * 0.9, 0, 1), v, out.tint, String.fromCodePoint(glyph));
+              else put(idx, EDGE, cov, v, out.tint);
+            }
+          }
+          if (P.strokes) P.strokes(c, emit);
+        }
+        if (def.pond) pond(T, ox, oy, reach);
+        // Shadows on the floor (glow dots)
+        if (o.glow) for (const c of list) {
+          const mul = c.plan.shadowMul || 1, gx = cw * (1.2 + 2.2 * c.depth) * mul, gy = ch * (0.8 + 1.4 * c.depth) * mul;
+          const c0 = Math.max(0, Math.floor((c.minX + gx) / cw)), c1 = Math.min(cols - 1, Math.floor((c.maxX + gx) / cw));
+          const r0 = Math.max(0, Math.floor((c.minY + gy) / ch)), r1 = Math.min(rows - 1, Math.floor((c.maxY + gy) / ch));
+          for (let r = r0; r <= r1; r++) for (let col = c0; col <= c1; col++) {
+            const idx = r * cols + col;
+            if (kind[idx] || !sample(c, col * cw + cw / 2 - gx, r * ch + ch / 2 - gy)) continue;
+            putGlow(idx, (0.65 + 0.35 * (1 - Math.min(1, q.a * 2))) * (0.45 + 0.5 * c.depth), def.glowTint);
+          }
+        }
+        // Wakes
+        if (o.trails && def.trails !== false) {
+          const gap = ch * 1.25, K = 26;
+          for (const c of list) if (c.path) {
+            // soft wake along the wandering path
+            const u0 = c.U - c.Lb, j0 = Math.floor(u0 / gap), W = c.Lb * c.sp.width;
+            for (let j = 0; j < K; j++) {
+              const wi = j0 - j, u = wi * gap, age = (u0 - u) / (K * gap);
+              if (age < 0 || u < 0) continue;
+              const h = ihash(wi + 70000, c.id * 131, o.seed);
+              if (h / 4294967296 < 0.45) continue;
+              wanderAt(c, u, wv);
+              const lat = (((h >>> 8) % 1000) / 1000 - 0.5) * W * (1.4 + age * 5);
+              const col = Math.floor((wv[0] - wv[3] * lat) / cw), r = Math.floor((wv[1] + wv[2] * lat) / ch);
+              if (col < 0 || r < 0 || col >= cols || r >= rows) continue;
+              putDash(r * cols + col, 0.6 * Math.pow(1 - age, 1.6) * (0.4 + 0.6 * c.depth));
+            }
+          }
+          for (const c of list) for (let back = 0; back < 2; back++) {
+            if (c.path) break;
+            const L = c.lanes[c.k - back];
             if (!L) continue;
-            const uTail = L.t0 + (sh.U - L.start) - sh.Lb, j0 = Math.floor(uTail / gap);
+            const W = c.Lb * (c.plan.rigid ? 0.5 : c.sp.width || 0.12);
+            const uTail = L.t0 + (c.U - L.start) - c.Lb, j0 = Math.floor(uTail / gap);
             for (let j = 0; j < K; j++) {
               const wi = j0 - j, u = wi * gap, age = (uTail - u) / (K * gap);
               if (age < 0 || u < L.t0) continue;
-              for (let q = 0; q < 2; q++) {
-                const h = ihash(wi + 50000, sh.id * 131 + q, L.k * 7 + o.seed);
-                if (h / 4294967296 < (q ? 0.65 : 0.3)) continue;
-                pathXY(L, u, tmp);
-                const lat = (((h >>> 8) % 1000) / 1000 - 0.5) * sh.W * (1.6 + age * 5);
-                const c = Math.floor((tmp[0] + L.px * lat) / cw), r = Math.floor((tmp[1] + L.py * lat) / ch);
-                if (c < 0 || r < 0 || c >= cols || r >= rows) continue;
-                putDash(r * cols + c, 0.85 * Math.pow(1 - age, 1.4) * (0.5 + 0.5 * sh.depth));
+              for (let k = 0; k < 2; k++) {
+                const h = ihash(wi + 50000, c.id * 131 + k, L.k * 7 + o.seed);
+                if (h / 4294967296 < (k ? 0.65 : 0.3)) continue;
+                const m = laneM(L, u), lat = (((h >>> 8) % 1000) / 1000 - 0.5) * W * (1.6 + age * 5);
+                const x = L.cx + L.dx * u + L.px * (m + lat), y = L.cy + L.dy * u + L.py * (m + lat);
+                const col = Math.floor(x / cw), r = Math.floor(y / ch);
+                if (col < 0 || r < 0 || col >= cols || r >= rows) continue;
+                putDash(r * cols + col, 0.85 * Math.pow(1 - age, 1.4) * (0.5 + 0.5 * c.depth));
               }
             }
           }
         }
+        // Drifting particles (marine snow) for water scenes
+        if (def.water && amb > 0) {
+          const N = Math.round(cols * rows * 0.012 * amb);
+          for (let i = 0; i < N; i++) {
+            const d = rnd3(i, o.seed, 61), sp = 0.15 + 0.6 * d;
+            const x = (((rnd3(i, o.seed, 62) * 1.3 + T * 0.004 * sp) % 1.3) - 0.15) * o.width;
+            const y = (((rnd3(i, o.seed, 63) * 1.3 - T * 0.009 * sp + 13) % 1.3) - 0.15) * o.height;
+            const col = Math.floor(x / cw), r = Math.floor(y / ch);
+            if (col < 0 || r < 0 || col >= cols || r >= rows) continue;
+            const idx = r * cols + col;
+            if (kind[idx] || glow[idx] > 0) continue;
+            if (Math.sin(T * 0.7 + i * 1.9) < -0.5) continue;
+            putChar(idx, EDGE, 0.15 + 0.35 * d, 0.5 + 0.5 * d, def.glowTint, d > 0.75 ? '*' : '.');
+          }
+        }
       }
-      return { build, frame, resetLanes };
+      return { build, frame, resetLanes, bg: def.bg || null, grid: def.grid || null };
     }
 
     /* ---------------- Waves (side view) ---------------- */
@@ -881,8 +1510,8 @@
       return self;
     }
 
-    const FACTORY = { alpenglow: Alpenglow, sharks: Sharks, waves: Waves, landscape: Landscape, image: () => Bitmap(false), text: () => Bitmap(true) };
-    function useScene() { scene = (FACTORY[o.scene] || Sharks)(); scene.build(); }
+    const FACTORY = { alpenglow: Alpenglow, sharks: () => Creatures('sharks'), mantas: () => Creatures('mantas'), koi: () => Creatures('koi'), birds: () => Creatures('birds'), waves: Waves, landscape: Landscape, image: () => Bitmap(false), text: () => Bitmap(true) };
+    function useScene() { scene = (FACTORY[o.scene] || FACTORY.sharks)(); scene.build(); }
 
     /* ---------------- Draw (pixel-buffer renderer: fast enough for small cells) ---------------- */
     let img = null, px32 = null, bufW = 0, bufH = 0, atlas = new Map(), atlasKey = '', gcv = null, gctx = null;
@@ -1043,7 +1672,7 @@
     function refresh() { atlasKey = ''; }
 
 
-    const REBUILD = ['scene', 'seed', 'count', 'species', 'size', 'speed', 'width', 'height', 'cols', 'cellAspect', 'spinePoints', 'source', 'text', 'textFont'];
+    const REBUILD = ['scene', 'seed', 'count', 'species', 'size', 'speed', 'width', 'height', 'cols', 'cellAspect', 'spinePoints', 'source', 'text', 'textFont', 'koiPads'];
     function set(p) {
       Object.assign(o, p);
       if ('width' in p || 'height' in p || 'cols' in p || 'cellAspect' in p) layout();
@@ -1057,7 +1686,7 @@
     return { render, set, refresh, options: o, get grid() { return { cols, rows, cw, ch }; } };
   }
 
-  return { create, SPECIES, DEFAULTS, SCENES: ['sharks', 'waves', 'landscape', 'alpenglow', 'image', 'text'] };
+  return { create, SPECIES, DEFAULTS, SCENES: ['sharks', 'mantas', 'koi', 'birds', 'waves', 'landscape', 'alpenglow', 'image', 'text'] };
 });
 
 /* =====================================================================
@@ -1123,6 +1752,9 @@
     'day-cycle': { name: 'Day cycle', config: { agCycle: true, agCycleSpeed: 1.5 } },
     'fine-grain': { name: 'Fine grain', config: { cols: 300, cellAspect: 1.4, inkAuto: false, ink: 0.3 } },
     'sharks': { name: 'Sharks', config: { scene: 'sharks', format: '3:4', cols: 56 } },
+    'mantas': { name: 'Mantas', config: { scene: 'mantas', format: '3:4', cols: 64, count: 3, heading: -70 } },
+    'koi': { name: 'Koi pond', config: { scene: 'koi', format: '1:1', cols: 72, count: 7, glitch: 0.015 } },
+    'gulls': { name: 'Gulls', config: { scene: 'birds', format: '16:9', cols: 120, count: 5, heading: -15, spread: 20 } },
     'night-ocean': { name: 'Night ocean', config: { scene: 'waves', cols: 96, size: 1.3 } },
     'type': { name: 'Type', config: { scene: 'text', text: 'MAILLE', cols: 120 } },
     'moo': { name: 'Moo', config: { scene: 'image', src: 'img/cow.jpg', cols: 160, threshold: 0.08, anim: {

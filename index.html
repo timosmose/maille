@@ -199,7 +199,7 @@
   const AF = window.Maille;
   const clone = (x) => JSON.parse(JSON.stringify(x));
   const FORMATS = { '16:9': [16, 9], '3:4': [3, 4], '1:1': [1, 1], '9:16': [9, 16] };
-  const SCENES = [['alpenglow', 'Alpenglow'], ['sharks', 'Sharks'], ['waves', 'Waves'], ['landscape', 'Landscape'], ['image', 'Image'], ['text', 'Text']];
+  const SCENES = [['alpenglow', 'Alpenglow'], ['sharks', 'Sharks'], ['mantas', 'Mantas'], ['koi', 'Koi'], ['birds', 'Birds'], ['waves', 'Waves'], ['landscape', 'Landscape'], ['image', 'Image'], ['text', 'Text']];
   const SPECIES = { mix: ['grey', 'sand', 'hammer', 'grey'], grey: ['grey'], sand: ['sand'], hammer: ['hammer'] };
   const FONTS = [
     ['JetBrains Mono', '"JetBrains Mono", ui-monospace, monospace'], ['IBM Plex Mono', '"IBM Plex Mono", ui-monospace, monospace'],
@@ -256,6 +256,31 @@
       { k: 'size', label: 'Size', type: 'range', min: 0.4, max: 1.8, step: 0.01, fmt: xx },
       { k: 'heading', label: 'Direction', type: 'range', min: -180, max: 180, step: 5, fmt: deg },
       { k: 'spread', label: 'Spread', type: 'range', min: 0, max: 90, step: 1, fmt: deg },
+      { k: 'contour', label: 'Shaped outlines', type: 'toggle' },
+      { k: 'ambient', label: 'Caustics & particles', type: 'range', min: 0, max: 2, step: 0.05, fmt: xx },
+    ]]],
+    mantas: [['Mantas', [
+      { k: 'count', label: 'Mantas', type: 'range', min: 1, max: 12, step: 1, fmt: int },
+      { k: 'size', label: 'Size', type: 'range', min: 0.4, max: 1.8, step: 0.01, fmt: xx },
+      { k: 'heading', label: 'Direction', type: 'range', min: -180, max: 180, step: 5, fmt: deg },
+      { k: 'spread', label: 'Spread', type: 'range', min: 0, max: 90, step: 1, fmt: deg },
+      { k: 'contour', label: 'Shaped outlines', type: 'toggle' },
+      { k: 'ambient', label: 'Caustics & particles', type: 'range', min: 0, max: 2, step: 0.05, fmt: xx },
+    ]]],
+    koi: [['Koi', [
+      { k: 'count', label: 'Koi', type: 'range', min: 1, max: 12, step: 1, fmt: int },
+      { k: 'size', label: 'Size', type: 'range', min: 0.4, max: 1.8, step: 0.01, fmt: xx },
+      { k: 'koiPads', label: 'Lily pads', type: 'range', min: 0, max: 12, step: 1, fmt: int },
+      { k: 'koiRipples', label: 'Ripples', type: 'range', min: 0, max: 2, step: 0.05, fmt: xx },
+      { k: 'contour', label: 'Shaped outlines', type: 'toggle' },
+      { k: 'ambient', label: 'Caustics & particles', type: 'range', min: 0, max: 2, step: 0.05, fmt: xx },
+    ]]],
+    birds: [['Birds', [
+      { k: 'count', label: 'Birds', type: 'range', min: 1, max: 12, step: 1, fmt: int },
+      { k: 'size', label: 'Size', type: 'range', min: 0.4, max: 1.8, step: 0.01, fmt: xx },
+      { k: 'heading', label: 'Direction', type: 'range', min: -180, max: 180, step: 5, fmt: deg },
+      { k: 'spread', label: 'Spread', type: 'range', min: 0, max: 90, step: 1, fmt: deg },
+      { k: 'contour', label: 'Shaped outlines', type: 'toggle' },
     ]]],
     waves: [['Waves', [
       { k: 'size', label: 'Swell', type: 'range', min: 0.3, max: 2, step: 0.01, fmt: xx },
@@ -314,7 +339,7 @@
   // ---------- state ----------
   const ENGINE_KEYS = Object.keys(AF.DEFAULTS).filter((k) => !['width', 'height', 'source', 'species', 'speed'].includes(k));
   const defaults = () => AF.configDefaults();
-  const SCENE_COLS = { alpenglow: 200, sharks: 64, waves: 96, landscape: 96, image: 140, text: 120 };
+  const SCENE_COLS = { alpenglow: 200, sharks: 64, mantas: 64, koi: 72, birds: 96, waves: 96, landscape: 96, image: 140, text: 120 };
   const PRESETS = Object.values(AF.PRESETS).map((p) => [p.name, p.config]);
   const LS_STATE = 'maille:state', LS_PRESETS = 'maille:presets';
   const store = {
