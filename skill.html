@@ -50,7 +50,7 @@
   h2 { margin: 0 0 16px; padding-bottom: 12px; border-bottom: 1px solid var(--gray-4); font: 500 12px/16px var(--sans); text-transform: uppercase; color: var(--gray-11); }
   p { margin: 0 0 12px; max-width: 62ch; }
   code { font: 13px var(--mono); }
-  p code { background: var(--gray-2); box-shadow: var(--ring); border-radius: 4px; padding: 1px 5px; }
+  p code { background: var(--gray-2); box-shadow: var(--ring); border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
 
   /* Koi and sharks swim in the margins on wide screens, as on timdalverny.com; the column stays clear */
   .pond { display: none; }
@@ -161,11 +161,12 @@ unzip -o /tmp/maille.zip -d ~/.claude/skills</pre><button class="copy" type="but
       <li><code>reference/photo-motion.md</code><span>How to make a still photo move: head, jaw, ears, wind in grass, camera drift.</span></li>
       <li><code>reference/config.md</code><span>Every setting of every scene, and the presets.</span></li>
       <li><code>assets/maille.js</code><span>The engine, so it works offline.</span></li>
+      <li><code>assets/fonts</code><span>JetBrains Mono (OFL), so glyphs render the same everywhere.</span></li>
     </ul>
   </section>
 </main>
 <div class="toast" id="toast" role="status"></div>
-<script src="maille.js?v=d88a6b3b"></script>
+<script src="maille.js?v=f80f4fda"></script>
 <script>
   // Same pond as timdalverny.com: only the ASCII shows, the creatures keep to the two side bands and
   // dissolve as they reach the column. Koi, with a few sharks passing through.

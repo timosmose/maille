@@ -53,7 +53,7 @@
   button, input, textarea { font: inherit; color: inherit; }
   :focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 
-  .app { position: relative; height: 100dvh; display: grid; grid-template-rows: var(--head) minmax(0, 1fr) auto; }
+  .app { position: relative; height: 100dvh; overflow: clip; display: grid; grid-template-rows: var(--head) minmax(0, 1fr) auto; }
   header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 var(--pad); border-bottom: 1px solid var(--color-border); }
   .brand { display: flex; align-items: center; gap: 10px; font: var(--font-meta-strong); color: var(--color-text-primary); }
   .brand svg { display: block; flex: none; }
@@ -69,7 +69,7 @@
   .frame { position: relative; aspect-ratio: var(--ar); width: min(100cqw, 100cqh * var(--arn)); }
   .frame.full { position: absolute; inset: 0; aspect-ratio: auto; width: auto; }
   .frame.drop::after { content: ""; position: absolute; inset: 0; box-shadow: inset 0 0 0 2px var(--color-focus); pointer-events: none; }
-  canvas { display: block; width: 100%; height: 100%; }
+  canvas { display: block; width: 100%; height: 100%; object-fit: cover; }
 
   /* Bottom bar: scenes, then actions */
   .bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 24px; padding: 12px var(--pad) max(12px, env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--color-border); }
@@ -103,6 +103,8 @@
   details > summary:hover { color: var(--color-text-primary); }
   details[open] > .stack { margin-top: 16px; }
   .foot { padding: 16px 24px; border-top: 1px solid var(--color-border); }
+  .foot .more-links { display: none; gap: 16px; margin-top: 12px; font: var(--font-label); color: var(--color-text-tertiary); }
+  .foot .more-links a:hover { color: var(--color-text-primary); }
 
   .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; row-gap: 8px; }
   .row > .lbl { color: var(--color-text-secondary); }
@@ -170,9 +172,14 @@
     .actions { grid-auto-flow: row; grid-template-columns: repeat(3, 1fr); }
     .actions .btn { padding: 0 6px; }
     .actions .primary { grid-column: 1 / -1; grid-row: 1; }
-    .drawer { top: auto; left: 0; width: auto; bottom: 0; max-height: 72dvh; border-left: 0; border-top: 1px solid var(--color-border); border-radius: var(--radius-lg) var(--radius-lg) 0 0; box-shadow: var(--shadow-md); transform: translateY(100%); }
+    .drawer { top: auto; left: 0; width: auto; bottom: 0; height: var(--sheet); border-left: 0; border-top: 1px solid var(--color-border); border-radius: var(--radius-lg) var(--radius-lg) 0 0; box-shadow: var(--shadow-md); transform: translateY(100%); }
     .drawer.open { transform: none; }
     .drawer .close { display: block; }
+    .app { --sheet: 56dvh; }
+    .app.editing .bar { display: none; }
+    .app.editing .well { padding-bottom: var(--sheet); }
+    .app.editing .frame.full { bottom: var(--sheet); }
+    .foot .more-links { display: flex; }
   }
   @media (prefers-reduced-motion: reduce) { .drawer, .drawer.open, .well, .switch, .switch::after, .toast { transition: none; } }
   .ver { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; margin-left: -2px; border-radius: 999px; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12); font: 500 12px/1 "Inter", system-ui, sans-serif; color: #918e88; font-variant-numeric: tabular-nums; }
@@ -213,12 +220,12 @@
         <details><summary>More</summary><div class="stack" id="styleMoreBody"></div></details>
       </div>
     </div>
-    <div class="foot"><div class="pair"><button class="btn" id="png">Save PNG</button><button class="btn" id="rec">Record video</button></div></div>
+    <div class="foot"><div class="pair"><button class="btn" id="png">Save PNG</button><button class="btn" id="rec">Record video</button></div><div class="more-links"><a href="docs.html">Docs</a><a href="skill.html">Claude skill</a></div></div>
   </aside>
 </div>
 <div class="toast" id="toast" role="status"></div>
 
-<script src="maille.js?v=d88a6b3b"></script>
+<script src="maille.js?v=f80f4fda"></script>
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
@@ -234,7 +241,7 @@
   const FONTS = [['700 200px Inter, "Helvetica Neue", Arial, sans-serif', 'Sans'], ['700 200px Georgia, "Times New Roman", serif', 'Serif'], ['700 200px "JetBrains Mono", ui-monospace, monospace', 'Mono']];
   const PROCEDURAL = ['alpenglow', 'sharks', 'mantas', 'koi', 'birds', 'waves', 'landscape'];
 
-  const pct = (v) => Math.round(v * 100) + '%', int = (v) => String(Math.round(v)), xx = (v) => (+v).toFixed(1) + '×', deg = (v) => Math.round(v) + '°';
+  const pct = (v) => Math.round(v * 100) + '%', int = (v) => String(Math.round(v)), xx = (v) => { const r = Math.round(v * 100) / 100; return (r % 1 ? String(r) : r.toFixed(1)) + '×'; }, deg = (v) => Math.round(v) + '°';
 
   // ---------- controls ----------
   const R = (k, label, min, max, step, fmt) => ({ k, label, type: 'range', min, max, step, fmt });
@@ -392,7 +399,7 @@
       const auto = row.querySelector('button'), col = row.querySelector('input');
       auto.addEventListener('click', () => { S.bgAuto = true; push(); syncAll(); });
       col.addEventListener('input', () => { S.bgAuto = false; S.background = col.value; push(); syncAll(); });
-      row.sync = () => { col.value = /^#[0-9a-f]{6}$/i.test(S.background) ? S.background : '#050506'; auto.style.color = S.bgAuto ? 'var(--color-text-primary)' : ''; };
+      row.sync = () => { col.value = /^#[0-9a-f]{6}$/i.test(S.background) ? S.background : '#050506'; auto.style.color = S.bgAuto ? 'var(--color-text-primary)' : ''; col.style.opacity = S.bgAuto ? '0.35' : ''; };
     }
     row.dataset.k = def.k;
     row.sync();
@@ -579,7 +586,8 @@
     const cfg = AF.compact(S), f = FORMATS[S.format];
     delete cfg.format;
     const json = JSON.stringify(cfg).replace(/&/g, '&amp;').replace(/'/g, '&#39;');
-    const style = f ? `display:block;width:100%;aspect-ratio:${f[0]}/${f[1]}` : 'display:block;width:100%;height:100%;min-height:320px';
+    const ar = f ? `${f[0]}/${f[1]}` : String(+(cv.width / cv.height).toFixed(3));
+    const style = `display:block;width:100%;aspect-ratio:${ar}`;
     return `<script src="${SITE}/maille.js" defer><\/script>\n<maille-scene config='${json}' style="${style}"></maille-scene>`;
   }
   $('copyEmbed').addEventListener('click', () => {

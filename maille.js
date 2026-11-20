@@ -548,12 +548,14 @@ const KOI_TINTS = {
       // Wandering path (pond fish): steered by noise, turned back before the edges; built once, extended lazily
       function wanderTo(c, U) {
         const p = c.path, st = p.step, Lb = c.Lb;
+        // a side band too narrow for the creature to turn in: it swims the whole frame instead
+        const sbw = o.sides > 0 && o.width * clamp(o.sides, 0.05, 0.45) >= Lb * 2.4;
         while (p.len < U + st * 2) {
           const j = p.x.length - 1, n = p.base + j, x = p.x[j], y = p.y[j];
           // head for a wandering target inside the pond, with a little noise on top
           const seg = Math.floor((n * st) / (Lb * 5));
           let tx, ty, lo = 0, hi = o.width;
-          if (o.sides > 0) {
+          if (sbw) {
             // sides: each fish owns a lane of its side band and swims back and forth along it, using
             // the band's whole width; now and then it makes a short trip across and comes back
             const sw = clamp(o.sides, 0.05, 0.45);
@@ -570,17 +572,17 @@ const KOI_TINTS = {
           let dth = Math.atan2(ty - y, tx - x) - p.th;
           dth = ((dth % TAU) + TAU * 1.5) % TAU - Math.PI;
           // in side lanes the fish hold their course more and wander less, so they keep to their lane
-          const pull = o.sides > 0 ? 0.9 : 0.6, wobble = o.sides > 0 ? 0.8 : 1.6;
+          const pull = sbw ? 0.9 : 0.6, wobble = sbw ? 0.8 : 1.6;
           let k = dth * pull / Lb + (noise1((n * st) / (Lb * 2.2), p.seed) - 0.5) * wobble / Lb;
           // side bands are narrow: look a little further, keep a wider margin and allow tighter turns
-          const sb = o.sides > 0, dx = Math.cos(p.th), dy = Math.sin(p.th), look = Lb * (sb ? 1.25 : 1.8), mg = Lb * (sb ? 0.5 : o.count <= 4 ? 1 : 0.3); // a few creatures keep well inside
+          const sb = sbw, dx = Math.cos(p.th), dy = Math.sin(p.th), look = Lb * (sb ? 1.25 : 1.8), few = o.count <= 4, mg = sb ? Lb * 0.5 : few ? Math.max(Lb, 0.1 * Math.min(o.width, o.height)) : Lb * 0.3; // a few creatures keep well inside
           // top and bottom of a side band: the fish may graze the screen edge, so the corners fill too
-          const my = sb ? Lb * 0.1 : mg, ly = sb ? 0.6 : 1;
+          const my = sb ? (few ? Math.max(Lb * 0.6, 0.06 * o.height) : Lb * 0.1) : mg, ly = sb ? 0.6 : 1;
           const qx = x + dx * look, qy = y + dy * look * ly, out = Math.max(lo + mg - qx, qx - (hi - mg), my - qy, qy - (o.height - my), 0);
           if (out > 0) {
             // turn back toward the middle, the same way round as the target pull so the two never cancel
             // (in side lanes, back toward its own lane rather than the middle of the screen)
-            const cx = (lo + hi) / 2 - x, cy = (o.sides > 0 && !p.away ? p.hy * o.height : o.height / 2) - y;
+            const cx = (lo + hi) / 2 - x, cy = (sbw && !p.away ? p.hy * o.height : o.height / 2) - y;
             let ac = Math.atan2(cy, cx) - p.th;
             ac = ((ac % TAU) + TAU * 1.5) % TAU - Math.PI;
             const turn = Math.abs(ac) > 2.6 && Math.abs(dth) > 0.2 ? Math.sign(dth) : Math.sign(ac) || 1;
@@ -605,16 +607,22 @@ const KOI_TINTS = {
           }
           const km = (sb ? 2 : 1.2) * (1 + 0.25 * (c.bolt != null && curT - c.bolt < BOLT_TURN ? boltCurve(curT - c.bolt, BOLT_TURN) : 0));
           k = clamp(k, -km / Lb, km / Lb);
-          // a creature bigger than the frame cannot turn back on its own radius: when it heads out,
-          // let it turn on a circle that fits the frame, so it always comes back into view
-          const outside = x < 0 || x > o.width || y < 0 || y > o.height;
-          if (out > 0 || outside) {
-            const rFit = 0.32 * Math.min(o.width, o.height);
-            if (outside || rFit < Lb / km) {
-              let ac = Math.atan2(o.height / 2 - y, o.width / 2 - x) - p.th;
-              ac = ((ac % TAU) + TAU * 1.5) % TAU - Math.PI;
-              if (Math.abs(ac) > 0.35) k = (Math.sign(ac) || 1) * Math.max(km / Lb, 1 / rFit);
-            }
+          // turning back: of the two full-rate circles, the one with more room inside the frame (when the
+          // middle is straight behind, the wrong one would carry the creature out before it comes round)
+          const rFit = 0.32 * Math.min(o.width, o.height), r = Math.min(Lb / km, rFit);
+          let td = 1, room = -Infinity;
+          for (const sgn of [1, -1]) {
+            const ccx = x - sgn * r * dy, ccy = y + sgn * r * dx, rm = Math.min(ccx - r, o.width - ccx - r, ccy - r, o.height - ccy - r);
+            if (rm > room) { room = rm; td = sgn; }
+          }
+          // a creature bigger than the frame cannot turn back on its own radius: when it heads out, it turns
+          // on a circle that fits the frame; and a few creatures never leave: once the better turn back would
+          // only just stay in view, they take it, whatever their target says
+          const outside = x < 0 || x > o.width || y < 0 || y > o.height || (few && room < 0.02 * Math.min(o.width, o.height));
+          if (outside || (out > 0 && rFit < Lb / km)) {
+            let ac = Math.atan2(o.height / 2 - y, o.width / 2 - x) - p.th;
+            ac = ((ac % TAU) + TAU * 1.5) % TAU - Math.PI;
+            if (Math.abs(ac) > 0.35) k = td * Math.max(km / Lb, 1 / rFit);
           }
           p.th += k * st;
           p.x.push(x + Math.cos(p.th) * st); p.y.push(y + Math.sin(p.th) * st);
