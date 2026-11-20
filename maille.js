@@ -69,6 +69,7 @@
   };
 
   const CONTOUR = ".,'`-_/\\|():;";
+  const MANTLE = [0.64, 0.69, 0.78], BILL_YELLOW = [1.3, 1.05, 0.4], BILL_SPOT = [1.36, 0.42, 0.3], BILL_RED = [1.36, 0.46, 0.3];
 
   const DEFAULTS = {
     scene: 'sharks',     // sharks | mantas | koi | birds | waves | landscape | alpenglow | image | text
@@ -90,6 +91,12 @@
     ambient: 1,          // creatures in water: caustics + drifting particles
     koiPads: 6,          // koi: lily pads floating on top
     koiRipples: 1,       // koi: rings when a fish kisses the surface
+    varieties: null,     // koi: list of varieties to use in turn (kohaku, tancho, sanke, showa, utsuri, asagi, shusui, chagoi, kujaku, butterfly, silver, gold); null = the scene's mix
+    pointer: null,       // [x, y] as fractions of the scene, or null: koi startle away from a moving pointer and come up to one that rests; it rings the pond surface
+    splash: 0,           // bump this number to drop a splash at the pointer (a click)
+    presence: 1,         // 0..1: share of cells drawn, a fixed random per cell, so a scene can dissolve in or out (crossfades)
+    cutout: null,        // [x0, x1, fade] as fractions of the width: nothing is drawn between x0 and x1, and cells dissolve over `fade` on each side
+    sides: 0,            // creatures: 0 = whole scene; 0.05-0.45 = fraction of the width kept on each side. Koi live in the two bands and now and then cross; swimmers and birds travel both ways
     glow: true,          // teal dot field
     glitch: 0.06,
     flicker: 2.4,
@@ -217,7 +224,17 @@
 
     /* ---------------- Creatures: top-down swimmers and flyers ---------------- */
     // Each plan gives the body (geo: is (s, a) inside, and which part) and its light (shade).
-    const KOI_TINTS = { white: [1.06, 1.04, 1], red: [1.36, 0.48, 0.26], black: [0.36, 0.38, 0.44], gold: [1.28, 0.98, 0.46], silver: [0.96, 1, 1.08], orange: [1.38, 0.74, 0.3], fin: [0.9, 0.97, 1] };
+    // Koi colours: milky white, deep vermilion, blue-black sumi, platinum, orange, the slate blue of
+    // asagi and shusui, chagoi bronze, the grey net of metallic scales, translucent fins
+    // soft colour edges: blend two tints into a scratch array (copied by put)
+    const KMIX = [0, 0, 0], KFOG = [0, 0, 0];
+    const kmix = (a, b, t) => { KMIX[0] = a[0] + (b[0] - a[0]) * t; KMIX[1] = a[1] + (b[1] - a[1]) * t; KMIX[2] = a[2] + (b[2] - a[2]) * t; return KMIX; };
+    const ksmooth = (x, a, b) => { const u = clamp((x - a) / (b - a), 0, 1); return u * u * (3 - 2 * u); };
+    const KOI_TINTS = {
+      white: [1.05, 1.03, 0.98], red: [1.38, 0.4, 0.22], black: [0.3, 0.32, 0.4], gold: [1.28, 0.98, 0.46],
+      silver: [0.98, 1.01, 1.08], orange: [1.4, 0.66, 0.26], blue: [0.58, 0.74, 0.98], bronze: [1.12, 0.8, 0.54],
+      net: [0.66, 0.7, 0.8], fin: [0.9, 0.97, 1], redFin: [1.2, 0.62, 0.48],
+    };
     const DIRC = ['-', '\\', '|', '/'].map((d) => d.codePointAt(0));
     // body glyph picked from the ramp by brightness (no per-frame jitter, so markings stay crisp)
     function rampCh(val) { const R = cps(o.ramp || '@8%SX#t;:'), n = R.length; return R[clamp(Math.floor((1 - clamp(val, 0, 1)) * (n - 0.01)), 0, n - 1)]; }
@@ -315,25 +332,44 @@
           // body axis (head → tail) from the normal, for strokes that follow the fish
           const ux = q.ny * q.side, uy = -q.nx * q.side;
           out.kd = BODY;
-          let val, tint;
+          let val, tint, hiT = -1;
           if (q.reg === 1) {
             const hw = profile(c.sp.prof, s) * c.sp.width, e = a / (hw || 1), x = (q.side * a) / c.sp.width;
             val = 0.68 - e * e * 0.3 + nl * e * 0.14;
             const big = noise2(s * 2.6 + c.id * 13.7, x * 0.7 + 3, o.seed + c.id), fine = noise2(s * 11 + c.id * 3.1, x * 3 + 7, o.seed + 9 + c.id);
             const patch = big + (fine - 0.5) * 0.1, body = s > 0.13 && s < 0.76, head = s > 0.03 && s < 0.12 && Math.abs(x) < 0.7;
+            // scales: diamond lattice catching the light, brighter on the lit flank (doitsu shusui has none)
+            const sc = Math.abs(Math.sin(s * 95 + x * 6)) + Math.abs(Math.sin(s * 95 - x * 6)), edge = sc > 1.55, flank = body && Math.abs(x) > 0.66;
             tint = KOI_TINTS.white;
             if (V === 'gold') tint = KOI_TINTS.gold;
             else if (V === 'silver') tint = KOI_TINTS.silver;
             else if (V === 'butterfly') tint = c.id % 2 ? KOI_TINTS.silver : KOI_TINTS.orange;
-            else if (V === 'tancho') tint = Math.hypot((s - 0.075) / 0.04, x / 0.48) < 1 ? KOI_TINTS.red : KOI_TINTS.white;
-            else if (V === 'showa') tint = patch > 0.56 && (body || head) ? KOI_TINTS.red : fine > 0.6 && s > 0.14 ? KOI_TINTS.white : KOI_TINTS.black;
-            else if (V === 'sanke') tint = body && fine > 0.7 && s > 0.2 && Math.abs(x) < 0.8 ? KOI_TINTS.black : (patch > 0.52 && body) || (head && big > 0.45) ? KOI_TINTS.red : KOI_TINTS.white;
-            else tint = (patch > 0.5 && body) || (head && big > 0.4) ? KOI_TINTS.red : KOI_TINTS.white;
+            else if (V === 'tancho') { const r = 1 - ksmooth(Math.hypot((s - 0.075) / 0.04, x / 0.48), 0.75, 1.15); tint = r > 0.98 ? KOI_TINTS.red : r < 0.02 ? KOI_TINTS.white : kmix(KOI_TINTS.white, KOI_TINTS.red, r); hiT = r; }
+            else if (V === 'showa') { const r = (body || head) ? ksmooth(patch, 0.52, 0.6) : 0; tint = r > 0.5 ? kmix(KOI_TINTS.black, KOI_TINTS.red, r) : fine > 0.6 && s > 0.14 ? KOI_TINTS.white : KOI_TINTS.black; hiT = r > 0.5 ? r : -1; }
+            else if (V === 'sanke') {
+              const r = Math.max(body ? ksmooth(patch, 0.44, 0.54) : 0, head ? ksmooth(big, 0.38, 0.48) : 0);
+              const sumi = body && fine > 0.72 && s > 0.2 && Math.abs(x) < 0.8;
+              tint = sumi ? KOI_TINTS.black : kmix(KOI_TINTS.white, KOI_TINTS.red, r); hiT = sumi ? -1 : r;
+            }
+            else if (V === 'utsuri') tint = (patch > 0.48 && (body || head)) || (head && big > 0.5) ? KOI_TINTS.white : KOI_TINTS.black; // shiro utsuri
+            else if (V === 'asagi') tint = flank || (s > 0.03 && s < 0.12 && Math.abs(x) > 0.6) ? KOI_TINTS.red : head ? KOI_TINTS.silver : edge ? KOI_TINTS.net : KOI_TINTS.blue;
+            else if (V === 'shusui') tint = flank ? KOI_TINTS.red : body && Math.abs(x) < 0.2 && Math.abs(Math.sin(s * 48)) > 0.55 ? KOI_TINTS.black : head ? KOI_TINTS.silver : KOI_TINTS.blue;
+            else if (V === 'chagoi') tint = edge ? KOI_TINTS.net : KOI_TINTS.bronze;
+            else if (V === 'kujaku') tint = patch > 0.53 && (body || head) ? KOI_TINTS.orange : edge && body ? KOI_TINTS.net : KOI_TINTS.silver;
+            else {
+              // kohaku: red patches with soft, slightly bleeding edges on milky white
+              const r = Math.max(body ? ksmooth(patch, 0.42, 0.52) : 0, head ? ksmooth(big, 0.36, 0.46) : 0);
+              tint = kmix(KOI_TINTS.white, KOI_TINTS.red, r); hiT = r;
+            }
             if (tint === KOI_TINTS.black) val *= 0.72;
-            if (V === 'gold' || V === 'silver' || V === 'butterfly') val += 0.07;
-            // scales: diamond lattice catching the light, brighter on the lit flank
-            const sc = Math.abs(Math.sin(s * 95 + x * 6)) + Math.abs(Math.sin(s * 95 - x * 6));
-            val += (sc > 1.6 ? 0.07 : -0.02) * (0.6 + 0.4 * e);
+            // white reads clean and milky, red deepens toward the middle of a patch
+            if (hiT >= 0) val += 0.12 * (1 - hiT) - 0.05 * hiT * ksmooth(patch, 0.6, 0.75);
+            else if (tint === KOI_TINTS.white || tint === KOI_TINTS.silver) val += 0.12; // a clean, milky white, not grey
+            // lit along the back, fading toward the tail
+            val *= 1.05 - 0.22 * ksmooth(s, 0.42, 0.8);
+            if (tint === KOI_TINTS.net) val *= 0.86;
+            if (V === 'gold' || V === 'silver' || V === 'butterfly' || V === 'kujaku') val += 0.07;
+            if (V !== 'shusui') val += (sc > 1.6 ? 0.07 : -0.02) * (0.6 + 0.4 * e);
             // gill cover: a darker arc behind the head
             if (s > 0.115 && s < 0.135 && e > 0.25) val *= 0.78;
             // eyes on the sides of the head
@@ -354,7 +390,8 @@
             else { root = 0.52; rx = (s - root); ry = a; }
             const ra = Math.atan2(ry, rx), rays = Math.abs(Math.sin(ra * (q.reg === 3 ? 9 : 6)));
             val = 0.5 + nl * 0.04 - Math.hypot(rx, ry) * (q.reg === 3 ? 0.7 : 0.6);
-            tint = V === 'gold' ? KOI_TINTS.gold : V === 'butterfly' && c.id % 2 === 0 ? KOI_TINTS.orange : V === 'showa' && q.reg === 2 ? KOI_TINTS.black : KOI_TINTS.fin;
+            tint = V === 'gold' ? KOI_TINTS.gold : V === 'butterfly' && c.id % 2 === 0 ? KOI_TINTS.orange : (V === 'showa' || V === 'utsuri') && q.reg === 2 ? KOI_TINTS.black
+              : (V === 'asagi' || V === 'shusui') && q.reg === 2 ? KOI_TINTS.redFin : V === 'chagoi' ? KOI_TINTS.bronze : KOI_TINTS.fin;
             if (rays < 0.3) {
               val += 0.14;
               const wx = ux * rx + q.nx * ry, wy = uy * rx + q.ny * ry;
@@ -362,10 +399,14 @@
             } else out.ch = rampCh(val * 0.8);
           }
           out.val = val;
-          // deeper fish sink into the green water
-          let m = c.fog.get(tint);
-          if (!m) { const f = (1 - c.depth) * 0.5; m = [tint[0] * (1 - f) + POND[0] * f, tint[1] * (1 - f) + POND[1] * f, tint[2] * (1 - f) + POND[2] * f]; c.fog.set(tint, m); }
-          out.tint = m;
+          // deeper fish sink a little into the green water (a blended tint is not cached: it changes cell to cell)
+          const f = (1 - c.depth) * 0.3;
+          if (tint === KMIX) { KFOG[0] = tint[0] * (1 - f) + POND[0] * f; KFOG[1] = tint[1] * (1 - f) + POND[1] * f; KFOG[2] = tint[2] * (1 - f) + POND[2] * f; out.tint = KFOG; }
+          else {
+            let m = c.fog.get(tint);
+            if (!m) { m = [tint[0] * (1 - f) + POND[0] * f, tint[1] * (1 - f) + POND[1] * f, tint[2] * (1 - f) + POND[2] * f]; c.fog.set(tint, m); }
+            out.tint = m;
+          }
         },
         strokes(c, emit) {
           // barbels at the corners of the mouth
@@ -408,35 +449,53 @@
         },
       },
       bird: {
-        rigid: true, reach: 1.25, burst: 0.08, burstT: [4, 3], vel: 0.13, len: [0.2, 0.12], meander: [0.4, 0.5], wl: [7, 6], bankK: 8, shadowMul: 2.8,
+        rigid: true, reach: 1.25, burst: 0.08, burstT: [4, 3], vel: 0.13, len: [0.2, 0.12], meander: [0.7, 0.7], wl: [6, 5], bankK: 11, shadowMul: 2.8,
         span(c, a, side) {
-          const f = c.f * (1 - 0.12 * c.bank * side), sp = c.sp;
+          const bk = 1 - 0.12 * c.bank * side, f = c.f * bk, f2 = (c.f2 || c.f) * bk, sp = c.sp;
           let x = a / f;
-          if (x > sp.wrist) x = sp.wrist + (x - sp.wrist) / c.fold;
+          if (x > sp.wrist) x = sp.wrist + (a - sp.wrist * f) / f2 / c.fold;
           return x;
         },
+        // body-axis position of a wing point once the sweep is applied (tips move most)
+        swept(c, s, x) { return s + (c.sweep || 0) * x * x; },
         geo(c, s, a, side) {
           const sp = c.sp;
           if (s >= 0 && s <= 1 && a < profile(sp.prof, s)) return 1;
-          if (s < 0.15 || s > 0.62) return 0;
-          return inPoly(sp.wing, s, this.span(c, a, side)) ? 2 : 0;
+          if (s < 0.05 || s > 0.75) return 0;
+          const x = this.span(c, a, side);
+          return inPoly(sp.wing, this.swept(c, s, x), x) ? 2 : 0;
         },
         shade(c, q, out) {
+          // Plumage from above: gull = white head and body, grey mantle, black wingtips with white
+          // mirrors, white trailing edge, yellow bill with a red spot; stork = white with black flight
+          // feathers, red bill and legs.
           const sp = c.sp, s = q.s, nl = q.nx * LX + q.ny * LY;
           out.kd = BODY; out.tint = sp.tint;
           if (q.reg === 1) {
             const hw = profile(sp.prof, s) || 0.01, e = q.a / hw;
-            out.val = 0.82 - e * e * 0.3 + nl * e * 0.2;
-            if (sp.legs && s < 0.11) { out.tint = [1.36, 0.46, 0.3]; out.val = 0.6; }
-            else if (!sp.legs && s < 0.03) { out.tint = [1.3, 1.05, 0.4]; out.val = 0.7; }
+            out.val = 0.86 - e * e * 0.28 + nl * e * 0.18;
+            if (sp.legs) {
+              if (s < 0.11) { out.tint = BILL_RED; out.val = 0.62; }
+            } else if (s < 0.035) { out.tint = s > 0.022 && e < 0.6 ? BILL_SPOT : BILL_YELLOW; out.val = 0.74; }
+            else if (s > 0.2 && s < 0.62 && e < 0.55) { out.tint = MANTLE; out.val = 0.7 + 0.1 * nl; } // grey saddle between the wings
             return;
           }
-          const x = this.span(c, q.a, q.side), tilt = c.sinT * nl;
-          let val = (sp.legs ? 0.82 : 0.58) + 0.3 * tilt;
-          val *= 0.9 + 0.1 * Math.sin(x * 55);
-          if (sp.legs) { if (s > 0.42 + x * 0.04 || x > 1.05) { out.kd = DARK; val = 0.14; } }
-          else if (x > 1.0) { out.kd = DARK; val = 0.1; }
-          else if (s < 0.27 + x * 0.12 && x > 0.15) val += 0.12;
+          const x = this.span(c, q.a, q.side), tilt = c.sinT * nl, sw = this.swept(c, s, x);
+          const trailing = !inPoly(sp.wing, sw + 0.035, x);
+          let val = 0.78 + 0.22 * tilt;
+          val *= 0.94 + 0.06 * Math.sin(x * 55); // feather rows
+          if (sp.legs) {
+            if (sw > 0.42 + x * 0.04 || x > 1.05) { out.kd = DARK; val = 0.16 + 0.08 * Math.sin(x * 40); }
+          } else if (x > 1.0) {
+            // black primaries, a white mirror near the very tip
+            const mirror = x > 1.1 && x < 1.2 && !trailing && sw > 0.3;
+            if (mirror) { out.tint = sp.tint; val = 0.82; }
+            else { out.kd = DARK; val = 0.1; }
+          } else {
+            out.tint = trailing ? sp.tint : MANTLE;
+            val = trailing ? 0.86 : val * 0.82;
+            if (!trailing && sw < 0.27 + x * 0.12 && x > 0.15) val += 0.06; // leading edge catches the light
+          }
           out.val = val;
         },
         strokes(c, emit) {
@@ -448,7 +507,7 @@
     const CREATURE_SCENES = {
       sharks: { water: true, glowTint: TEAL, species: null },
       mantas: { water: true, glowTint: [0.28, 0.62, 0.98], species: ['manta'], bg: ['#03060c', '#05101c', '#02040a'], grid: '#0b1119' },
-      koi: { water: true, pond: true, trails: false, glowTint: [0.3, 0.7, 0.55], species: ['koi'], varieties: ['kohaku', 'tancho', 'showa', 'gold', 'butterfly', 'sanke', 'kohaku', 'silver'], bg: ['#030705', '#06110d', '#020504'], grid: '#0b130f' },
+      koi: { water: true, pond: true, trails: false, glowTint: [0.3, 0.7, 0.55], species: ['koi'], varieties: ['kohaku', 'showa', 'asagi', 'sanke', 'tancho', 'utsuri', 'kujaku', 'shusui', 'kohaku', 'chagoi', 'butterfly', 'silver'], bg: ['#030705', '#06110d', '#020504'], grid: '#0b130f' },
       birds: { water: false, glowTint: [0.5, 0.56, 0.66], species: ['gull', 'gull', 'stork', 'gull'], trails: false },
     };
 
@@ -456,20 +515,62 @@
       const def = CREATURE_SCENES[name] || CREATURE_SCENES.sharks;
       let list = [], pads = [];
       const wv = [0, 0, 0, 0];
+      // live state: the pointer (px, last move time) and the rings it left on the surface
+      let curT = 0, lastT = null, ptr = null, lastSplash = 0, pokes = [];
       // Wandering path (pond fish): steered by noise, turned back before the edges; built once, extended lazily
       function wanderTo(c, U) {
         const p = c.path, st = p.step, Lb = c.Lb;
         while (p.len < U + st * 2) {
           const n = p.x.length - 1, x = p.x[n], y = p.y[n];
           // head for a wandering target inside the pond, with a little noise on top
-          const seg = Math.floor((n * st) / (Lb * 5)), tx = o.width * clamp(p.hx + (rnd3(seg, p.seed, 31) - 0.5) * 0.6, 0.25, 0.75), ty = o.height * clamp(p.hy + (rnd3(seg, p.seed, 32) - 0.5) * 0.6, 0.25, 0.75);
+          const seg = Math.floor((n * st) / (Lb * 5));
+          let tx, ty, lo = 0, hi = o.width;
+          if (o.sides > 0) {
+            // sides: each fish owns a lane of its side band and swims back and forth along it, using
+            // the band's whole width; now and then it makes a short trip across and comes back
+            const sw = clamp(o.sides, 0.05, 0.45);
+            if (seg !== p.seg) { p.away = p.seg !== undefined && rnd3(seg, p.seed, 33) < 0.07; p.seg = seg; }
+            const side = p.away ? -p.side : p.side, end = (seg + (p.k || 0) + (p.side > 0 ? 1 : 0)) % 2 ? 0.72 : 0.3;
+            const u = clamp(end + (rnd3(seg, p.seed, 31) - 0.5) * 0.16, 0.22, 0.8);
+            tx = o.width * (side < 0 ? sw * u : 1 - sw * (1 - u));
+            // the band's inner edge acts like the pond's edge, except on a trip across
+            if (!p.away) { if (side < 0) hi = o.width * sw; else lo = o.width * (1 - sw); }
+            ty = o.height * clamp(p.hy + (rnd3(seg, p.seed, 32) - 0.5) * p.lane, 0.05, 0.95);
+          } else {
+            tx = o.width * clamp(p.hx + (rnd3(seg, p.seed, 31) - 0.5) * 0.6, 0.25, 0.75); ty = o.height * clamp(p.hy + (rnd3(seg, p.seed, 32) - 0.5) * 0.6, 0.25, 0.75);
+          }
           let dth = Math.atan2(ty - y, tx - x) - p.th;
           dth = ((dth % TAU) + TAU * 1.5) % TAU - Math.PI;
-          let k = dth * 0.6 / Lb + (noise1((n * st) / (Lb * 2.2), p.seed) - 0.5) * 1.6 / Lb;
-          const dx = Math.cos(p.th), dy = Math.sin(p.th), look = Lb * 1.8, mg = Lb * 0.3;
-          const qx = x + dx * look, qy = y + dy * look, out = Math.max(mg - qx, qx - (o.width - mg), mg - qy, qy - (o.height - mg), 0);
-          if (out > 0) { const cx = o.width / 2 - x, cy = o.height / 2 - y; k += (dx * cy - dy * cx >= 0 ? 1 : -1) * (0.6 + 1.5 * Math.min(1, out / Lb)) / Lb; }
-          k = clamp(k, -1.2 / Lb, 1.2 / Lb);
+          // in side lanes the fish hold their course more and wander less, so they keep to their lane
+          const pull = o.sides > 0 ? 0.9 : 0.6, wobble = o.sides > 0 ? 0.8 : 1.6;
+          let k = dth * pull / Lb + (noise1((n * st) / (Lb * 2.2), p.seed) - 0.5) * wobble / Lb;
+          // side bands are narrow: look a little further, keep a wider margin and allow tighter turns
+          const sb = o.sides > 0, dx = Math.cos(p.th), dy = Math.sin(p.th), look = Lb * (sb ? 1.25 : 1.8), mg = Lb * (sb ? 0.5 : 0.3);
+          // top and bottom of a side band: the fish may graze the screen edge, so the corners fill too
+          const my = sb ? Lb * 0.1 : mg, ly = sb ? 0.6 : 1;
+          const qx = x + dx * look, qy = y + dy * look * ly, out = Math.max(lo + mg - qx, qx - (hi - mg), my - qy, qy - (o.height - my), 0);
+          if (out > 0) {
+            // turn back toward the middle, the same way round as the target pull so the two never cancel
+            // (in side lanes, back toward its own lane rather than the middle of the screen)
+            const cx = (lo + hi) / 2 - x, cy = (o.sides > 0 && !p.away ? p.hy * o.height : o.height / 2) - y;
+            let ac = Math.atan2(cy, cx) - p.th;
+            ac = ((ac % TAU) + TAU * 1.5) % TAU - Math.PI;
+            const turn = Math.abs(ac) > 2.6 && Math.abs(dth) > 0.2 ? Math.sign(dth) : Math.sign(ac) || 1;
+            k += turn * (sb ? 1.1 + 2.2 * Math.min(1, out / Lb) : 0.6 + 1.5 * Math.min(1, out / Lb)) / Lb;
+          }
+          // keep clear of the other fish (their paths run just ahead of them)
+          for (const c2 of list) {
+            if (c2 === c || !c2.path) continue;
+            const p2 = c2.path, j = p2.x.length - 1, ex = p2.x[j] - x, ey = p2.y[j] - y, d = Math.hypot(ex, ey), R = (Lb + c2.Lb) * 0.75;
+            if (d < R && d > 1) k += (dx * ey - dy * ex >= 0 ? -1 : 1) * 1.1 * (1 - d / R) / Lb;
+          }
+          // the pointer: a moving one startles the fish away, a resting one draws them in
+          if (ptr) {
+            const age = curT - ptr.t, ex = ptr.x - x, ey = ptr.y - y, d = Math.hypot(ex, ey), turn = dx * ey - dy * ex >= 0 ? 1 : -1;
+            if (age < 1.6 && d < Lb * 2.4) k -= turn * 1.6 * (1 - d / (Lb * 2.4)) / Lb;
+            else if (age > 1.8 && age < 16 && d < Lb * 5 && d > Lb * 0.8) k += turn * 0.7 * Math.min(1, (age - 1.8) / 1.5) / Lb;
+          }
+          k = clamp(k, -(sb ? 2 : 1.2) / Lb, (sb ? 2 : 1.2) / Lb);
           p.th += k * st;
           p.x.push(x + Math.cos(p.th) * st); p.y.push(y + Math.sin(p.th) * st);
           p.len += st;
@@ -490,7 +591,8 @@
       function laneDM(L, u) { return L.mA * L.mk * Math.cos(u * L.mk + L.mp) + L.mA2 * L.mk2 * Math.cos(u * L.mk2 + L.mp2); }
       function makeLane(c, k, start) {
         const r = mulberry32(ihash(o.seed * 31 + 7, c.id, k + 1000)), P = c.plan;
-        const th = ((o.heading + (r() * 2 - 1) * o.spread) * Math.PI) / 180;
+        // sides: every other creature travels the opposite way, so both edges stay busy
+        const th = ((o.heading + (r() * 2 - 1) * o.spread + (o.sides > 0 && c.id % 2 ? 180 : 0)) * Math.PI) / 180;
         const L = { k, start };
         L.dx = Math.cos(th); L.dy = Math.sin(th); L.px = -L.dy; L.py = L.dx;
         const half = 0.5 * (Math.abs(L.px) * o.width + Math.abs(L.py) * o.height) * 0.8;
@@ -526,14 +628,16 @@
         const names = def.species || (o.species && o.species.length ? o.species : DEFAULTS.species);
         for (let i = 0; i < o.count; i++) {
           const r = mulberry32(ihash(o.seed, i, 99));
-          const depth = o.count === 1 ? 0.8 : clamp(0.15 + 0.85 * ((i + r() * 0.6) / o.count), 0, 1);
+          // in side bands sizes are shuffled across the lanes, so big and small fish spread evenly
+          const di = o.sides > 0 ? ((i * 0.618034) % 1) * o.count : i;
+          const depth = o.count === 1 ? 0.8 : clamp(0.15 + 0.85 * ((di + r() * 0.6) / o.count), 0, 1);
           const sp = SPECIES[names[i % names.length]] || SPECIES.grey, P = PLANS[sp.plan];
           const Lb = o.size * (P.len[0] + P.len[1] * depth) * m, n = o.spinePoints;
           const c = {
             id: i, slot: (i * 7 + o.seed) % o.count, sp, plan: P, depth, Lb, n, vel: m * P.vel * (0.75 + 0.5 * r()) * (0.7 + 0.3 * depth),
             margin: Lb * (P.reach + 0.6) + cw * 2,
             bw: TAU / (P.burstT[0] + P.burstT[1] * r()), bp: r() * TAU, beatMul: 0.85 + 0.3 * r(),
-            variety: def.varieties ? def.varieties[i % def.varieties.length] : null,
+            variety: (() => { const vs = o.varieties && o.varieties.length ? o.varieties : def.varieties; return vs ? vs[i % vs.length] : null; })(),
             pts: new Float32Array(n * 2), arc: new Float32Array(n), seg: new Float32Array(n),
             ux: new Float32Array(n), uy: new Float32Array(n), total: 1, lanes: [], k: 0, uHead: 0, U: 0,
             hx: 0, hy: 0, dx: 0, dy: -1, flex: 0, sweep: 0, bank: 0, phi: 0, f: 1, fold: 1, sinT: 0,
@@ -546,8 +650,18 @@
           if (P.wander) {
             const rr = mulberry32(ihash(o.seed, i, 777));
             // each fish keeps to its own part of the pond (golden-angle spread), so they cross without piling up
-            const hx = 0.5 + 0.32 * Math.sqrt((i + 0.5) / o.count) * Math.cos(i * 2.39996 + o.seed), hy = 0.5 + 0.32 * Math.sqrt((i + 0.5) / o.count) * Math.sin(i * 2.39996 + o.seed);
-            c.path = { hx, hy, x: [o.width * hx], y: [o.height * hy], th: rr() * TAU, step: Math.max(2, Lb / 40), len: 0, seed: ihash(o.seed, i, 778) % 9973 };
+            let hx = 0.5 + 0.32 * Math.sqrt((i + 0.5) / o.count) * Math.cos(i * 2.39996 + o.seed), hy = 0.5 + 0.32 * Math.sqrt((i + 0.5) / o.count) * Math.sin(i * 2.39996 + o.seed);
+            const side = i % 2 ? 1 : -1;
+            let lane = 0.7;
+            if (o.sides > 0) {
+              // sides: half the fish start in each band, spread down its height
+              // the same lanes on both sides, from top to bottom, so the corners fill as much as the middle
+              const sw = clamp(o.sides, 0.05, 0.45), k = Math.floor(i / 2), per = Math.ceil(o.count / 2);
+              hx = side < 0 ? sw * (0.3 + 0.4 * rr()) : 1 - sw * (0.3 + 0.4 * rr());
+              hy = per > 1 ? 0.1 + 0.8 * (k / (per - 1)) : 0.5;
+              lane = (0.8 / Math.max(1, per - 1)) * 0.5;
+            }
+            c.path = { hx, hy, side, lane, k: Math.floor(i / 2), x: [o.width * hx], y: [o.height * hy], th: rr() * TAU, step: Math.max(2, Lb / 40), len: 0, seed: ihash(o.seed, i, 778) % 9973 };
             c.offset = Lb * 1.4;
           }
           list.push(c);
@@ -560,7 +674,13 @@
           for (let i = 0; i < n; i++) {
             const cl = i % nc, rc = mulberry32(ihash(o.seed, cl, 4241)), r = mulberry32(ihash(o.seed, i, 4242));
             const ca = rc() * TAU + cl * (TAU / nc), cr = 0.27 + 0.12 * rc();
-            const cx = o.width * (0.5 + Math.cos(ca) * cr), cy = o.height * (0.5 + Math.sin(ca) * cr * (o.width / o.height > 1.2 ? 0.9 : 1));
+            let cx = o.width * (0.5 + Math.cos(ca) * cr), cy = o.height * (0.5 + Math.sin(ca) * cr * (o.width / o.height > 1.2 ? 0.9 : 1));
+            if (o.sides > 0) {
+              // sides: clusters alternate between the two bands
+              const sw = clamp(o.sides, 0.05, 0.45), u = 0.25 + 0.5 * rc();
+              cx = o.width * (cl % 2 ? 1 - sw * u : sw * u);
+              cy = o.height * (0.12 + 0.76 * ((Math.floor(cl / 2) + 0.2 + 0.6 * rc()) / Math.ceil(nc / 2)));
+            }
             const first = i < nc, R = m * o.size * (first ? 0.075 + 0.025 * r() : 0.04 + 0.03 * r());
             const da = r() * TAU, dd = first ? 0 : m * o.size * (0.08 + 0.05 * r());
             const drops = [];
@@ -625,7 +745,12 @@
           c.phi = TAU * sp.beat * T * c.beatMul + c.id * 1.7;
           const th = g * sp.beatAmp * Math.sin(c.phi) + sp.dihedral;
           c.f = Math.max(0.3, Math.cos(th)); c.sinT = Math.sin(th);
-          c.fold = 1 - 0.3 * g * Math.max(0, Math.cos(c.phi));
+          // the hand trails the arm (whip-like stroke) and folds on the upstroke
+          const th2 = g * sp.beatAmp * 1.25 * Math.sin(c.phi - 0.75) + sp.dihedral;
+          c.f2 = Math.max(0.22, Math.cos(th2));
+          c.fold = 1 - 0.38 * g * Math.max(0, Math.cos(c.phi - 0.4));
+          // wings sweep forward on the downstroke, back on the upstroke; swept back a little when gliding
+          c.sweep = 0.07 * g * Math.cos(c.phi) + 0.035 * (1 - g);
         }
         // bbox
         const ext = c.Lb * (P.reach + 0.15);
@@ -772,6 +897,13 @@
             ring(wv[0], wv[1], R, a);
             if (R > c.Lb * 0.2) ring(wv[0], wv[1], R - c.Lb * 0.13, a * 0.6);
           }
+          // rings left by the pointer
+          for (const k of pokes) {
+            const age = curT - k.t, LIFE2 = 2.6, m = Math.min(o.width, o.height), a = Math.min(1.4, (1 - age / LIFE2) * (0.8 + 0.6 * k.s));
+            const R = m * (0.008 + (0.035 + 0.025 * k.s) * age);
+            ring(k.x, k.y, R, a);
+            if (age > 0.25) ring(k.x, k.y, R * 0.66, a * 0.55);
+          }
           // and a few drops or insects elsewhere
           const nd = Math.round(2 * rip);
           for (let i = 0; i < nd; i++) {
@@ -875,6 +1007,29 @@
 
       function frame(t) {
         const T = t * o.speed, amb = o.ambient == null ? 1 : o.ambient;
+        const dt = lastT == null ? 0 : clamp(T - lastT, 0, 0.1);
+        lastT = T; curT = T;
+        if (o.pointer && o.pointer.length >= 2) {
+          const px = o.pointer[0] * o.width, py = o.pointer[1] * o.height, moved = ptr ? Math.hypot(px - ptr.x, py - ptr.y) : 0;
+          if (!ptr || moved > 2) {
+            const last = pokes[pokes.length - 1];
+            if (def.pond && ptr && moved > 6 && (!last || T - last.t > 0.22)) pokes.push({ x: px, y: py, t: T, s: 0.45 });
+            ptr = { x: px, y: py, t: T };
+          }
+        } else ptr = null;
+        if ((o.splash || 0) !== lastSplash) {
+          lastSplash = o.splash || 0;
+          if (ptr && def.pond) { pokes.push({ x: ptr.x, y: ptr.y, t: T, s: 1 }); ptr.t = T; }
+        }
+        pokes = pokes.filter((k) => T - k.t < 2.6);
+        // a startled fish darts: it covers more ground for a moment
+        for (const c of list) {
+          if (!c.plan.wander || !c.pts) continue;
+          let f = 0;
+          if (ptr && T - ptr.t < 1.6) { const d = Math.hypot(c.pts[0] - ptr.x, c.pts[1] - ptr.y); f = Math.max(0, 1 - d / (c.Lb * 2.2)); }
+          c.fear = (c.fear || 0) * 0.92 + f * 0.08;
+          c.offset += c.vel * dt * 2.2 * c.fear;
+        }
         for (const c of list) pose(c, T);
         const useContour = o.contour !== false;
         if (useContour) contourTable();
@@ -1216,7 +1371,9 @@
         const isVideo = !!src.videoWidth;
         if (!iw || !ih) return;
         const live = !isText && !!o.source && !!o.anim && o.animAmount > 0;
-        if (src !== lastSrc || isVideo || live) {
+        // A canvas source may be drawn on every frame (procedural animation): sample it each time
+        const isCanvas = !isText && !!o.source && typeof HTMLCanvasElement !== 'undefined' && src instanceof HTMLCanvasElement;
+        if (src !== lastSrc || isVideo || live || isCanvas) {
           octx.fillStyle = '#000'; octx.fillRect(0, 0, sw, sh);
           if (live) {
             const fx = animate(src, iw, ih, t), k = o.animAmount, b = o.anim.breathe || 0;
@@ -1612,11 +1769,18 @@
       const BR = o.brightness, SAT = o.saturation, adj = BR !== 1 || SAT !== 1;
       const A = (r, g2, b) => { if (!adj) return [r, g2, b]; const l = 0.299 * r + 0.587 * g2 + 0.114 * b; return [(l + (r - l) * SAT) * BR, (l + (g2 - l) * SAT) * BR, (l + (b - l) * SAT) * BR]; };
       const lh = Math.max(1, Math.round(ch * 0.07));
+      // Cutout: a band where nothing is drawn; cells dissolve as they reach it (tile, then glyph, then dots)
+      const cut = o.cutout && o.cutout.length >= 2 ? o.cutout : null;
+      const presence = o.presence == null ? 1 : clamp(o.presence, 0, 1);
+      const cx0 = cut ? cut[0] * W : 0, cx1 = cut ? cut[1] * W : 0, cfd = cut ? Math.max(1, (cut[2] || 0) * W) : 1;
+      const fadeAt = (c) => { const x = (c + 0.5) * cw, d = x < cx0 ? cx0 - x : x > cx1 ? x - cx1 : -1; return d < 0 ? 0 : Math.min(1, d / cfd); };
       for (let idx = 0; idx < kind.length; idx++) {
         if (kind[idx]) continue;
         const I = glow[idx], a = dash[idx];
         if (!(I > 0) && !(a > 0.02)) continue;
         const c = idx % cols, r = (idx / cols) | 0;
+        if (presence < 1 && rnd3(c, r, 92) >= presence) continue;
+        if (cut) { const f = fadeAt(c); if (f < 1 && rnd3(c, r, 91) >= f) continue; }
         const cx = (c + 0.5) * cw, cy = (r + 0.5) * ch;
         if (I > 0) {
           const slot = Math.floor(t * o.flicker * 0.5 + (ihash(c, r, 3) % 97) / 31);
@@ -1641,11 +1805,23 @@
         const kd = kind[idx];
         if (!kd) continue;
         const c = idx % cols, r = (idx / cols) | 0;
+        // cutout dissolve: f = 1 clear of the band, 0 at its edge; n = a fixed random per cell
+        let f = 1, n = 0;
+        if (presence < 1 && rnd3(c, r, 92) >= presence) continue;
+        if (cut) { f = fadeAt(c); if (f <= 0) continue; if (f < 1) { n = rnd3(c, r, 91); if (n >= f * 1.3) continue; } }
         const x0 = Math.round(c * cw), x1 = Math.round((c + 1) * cw), y0 = Math.round(r * ch), y1 = Math.round((r + 1) * ch);
         const tr = TR[idx], tg = TG[idx], tb = TB[idx], v = dim[idx], s = shade[idx];
         const key = ihash(c, r, 17), slot = Math.floor(t * o.flicker + (key % 997) / 97);
         const isAcc = rnd3(key, slot, 7) < o.glitch, pick = ihash(key, slot, 2);
         let code = chrO[idx];
+        if (f < 1 && kd !== EDGE && n >= (f - 0.45) / 0.55) {
+          // past the tile stage: the cell is only its glyph, in the tile colour; near the edge just a dot
+          const C = (kd === HIGH ? 226 : kd === DARK ? 24 + s * 40 : kd === MARK ? 150 : 46 + s * 165) * v, q = A(C * tr, C * tg, C * tb + 4);
+          if (f < 0.4) code = DOTS[pick % DOTS.length];
+          else if (!code) { const rn = RC.length; code = RC[clamp(Math.floor((1 - s) * (rn - 0.01)), 0, rn - 1)]; }
+          drawGlyph(code, x0, y0, x1, y1, q[0], q[1], q[2]);
+          continue;
+        }
         if (kd === EDGE) {
           if (!code) { const set = s > 0.5 ? EH : ES; code = set[pick % set.length]; }
           const L = (70 + s * 90) * v;
@@ -1667,12 +1843,13 @@
       }
       ctx.putImageData(img, 0, 0);
     }
+    const DOTS = [46, 46, 58, 39];
     const cpsCache = new Map();
     function cps(str) { let a = cpsCache.get(str); if (!a) { a = Array.from(String(str)).map((ch2) => ch2.codePointAt(0)); if (!a.length) a = [64]; cpsCache.set(str, a); } return a; }
     function refresh() { atlasKey = ''; }
 
 
-    const REBUILD = ['scene', 'seed', 'count', 'species', 'size', 'speed', 'width', 'height', 'cols', 'cellAspect', 'spinePoints', 'source', 'text', 'textFont', 'koiPads'];
+    const REBUILD = ['scene', 'seed', 'count', 'species', 'size', 'speed', 'width', 'height', 'cols', 'cellAspect', 'spinePoints', 'source', 'text', 'textFont', 'koiPads', 'sides', 'varieties'];
     function set(p) {
       Object.assign(o, p);
       if ('width' in p || 'height' in p || 'cols' in p || 'cellAspect' in p) layout();
@@ -1867,6 +2044,12 @@
     play() { this.removeAttribute('paused'); }
     pause() { this.setAttribute('paused', ''); }
     get engine() { return this._engine; }
+    // Share of cells drawn (0..1), for dissolving the scene in or out without a rebuild
+    get presence() { return this._presence == null ? 1 : this._presence; }
+    set presence(v) { this._presence = v; if (this._engine) { this._engine.set({ presence: v }); this._draw(); } }
+    // An image, video or canvas element to draw (image scene), in place of config.src
+    get source() { return this._source || null; }
+    set source(v) { this._source = v || null; if (this._engine) { this._apply(); this._loop(); } }
 
     _attrConfig() {
       let c = {};
@@ -1882,7 +2065,9 @@
       if (sp != null && sp !== '') this._cfg.speed = parseFloat(sp);
       const opts = toEngine(this._cfg);
       opts.cols = this._effCols();
-      const want = this._cfg.scene === 'image' && this._cfg.src ? this._cfg.src : '';
+      if (this._source) opts.source = this._source;
+      if (this._presence != null) opts.presence = this._presence;
+      const want = this._cfg.scene === 'image' && this._cfg.src && !this._source ? this._cfg.src : '';
       this._pending = '';
       if (want) {
         const entry = loadSrc(want);
