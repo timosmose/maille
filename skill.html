@@ -29,7 +29,7 @@
   body { margin: 0; background: var(--gray-1); color: var(--gray-11); font: 400 16px/26px var(--sans); font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased; padding: 24px max(16px, env(safe-area-inset-left, 0px)) 96px; }
   a { color: inherit; }
   :focus-visible { outline: 2px solid var(--gray-12); outline-offset: 2px; border-radius: 4px; }
-  main { max-width: 760px; margin: 0 auto; display: grid; gap: 64px; }
+  main { max-width: 760px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 64px; }
   nav { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
   nav span { display: flex; gap: 4px; }
   nav span a { padding: 5px 12px; border-radius: 999px; color: var(--gray-10); text-decoration: none; transition: color 150ms ease, background-color 150ms ease; }
