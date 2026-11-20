@@ -6,12 +6,14 @@ Static site, no build step. Deploy the folder as-is (Vercel: framework "Other", 
 
 | File | Role |
 | --- | --- |
-| `index.html` | The studio: every setting, palettes, presets, PNG/WebM export, embed code |
+| `index.html` | The tool: scene strip, your image or text, a few settings per scene, embed code, PNG and video |
 | `maille.js` | The library: rendering engine + `<maille-scene>` web component (the file embeds load) |
 | `e.html` | Iframe embed: `e.html?preset=alpine-day` or `e.html?c=<config>` |
 | `docs.html` | Public docs: script embed, iframe embed, attributes, presets, JS API |
 | `vercel.json` | CORS on `maille.js` so other sites can load it, iframe allowed everywhere |
 | `favicon.svg` | Icon |
+| `skill/maille-motion/` | Claude skill: method, film template, frame-exact render script |
+| `maille-skill.zip` | The same skill zipped, linked from the docs. Rebuild after editing: `cd skill && zip -rq ../maille-skill.zip maille-motion` |
 
 ## Embed
 
@@ -20,7 +22,7 @@ Static site, no build step. Deploy the folder as-is (Vercel: framework "Other", 
 <maille-scene preset="alpenglow" style="display:block;width:100%;aspect-ratio:16/9"></maille-scene>
 ```
 
-The studio's **Copy embed** button writes this with your exact settings in `config`.
+The **Copy embed code** button writes this with your exact settings in `config`.
 
 ## To do before sharing publicly
 

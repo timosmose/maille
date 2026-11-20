@@ -50,17 +50,17 @@
 </head>
 <body>
 <main>
-  <nav><a class="brand" href="./">Maille</a><a href="./">Open the studio</a></nav>
+  <nav><a class="brand" href="./">Maille</a><a href="./">Open Maille</a></nav>
 
   <section>
     <h1>Animated ASCII scenes for any website</h1>
-    <p class="lead">Tune a scene in the studio, copy the embed, paste it where you build. One script, no dependencies, about 60 KB.</p>
+    <p class="lead">Start from a scene or your own image or text, copy the embed, paste it where you build. One script, no dependencies.</p>
     <maille-scene preset="golden-hour"></maille-scene>
   </section>
 
   <section>
     <h2>Script embed</h2>
-    <p>Works in any HTML page, Webflow (Embed element) and Framer (Embed component, HTML mode). The studio's <strong>Copy embed</strong> button writes this for you with your settings inside <code>config</code>.</p>
+    <p>Works in any HTML page, Webflow (Embed element) and Framer (Embed component, HTML mode). The <strong>Copy embed code</strong> button writes this for you with your settings inside <code>config</code>. An uploaded image travels inside the config, so it embeds like any other scene.</p>
 <pre><code>&lt;script src="https://SITE/maille.js" defer&gt;&lt;/script&gt;
 &lt;maille-scene preset="alpenglow" style="display:block;width:100%;aspect-ratio:16/9"&gt;&lt;/maille-scene&gt;</code></pre>
     <p>The scene fills its element. Give it a size with CSS (width plus <code>aspect-ratio</code> or a height). It pauses when scrolled out of view or when the tab is hidden, and shows a still frame for visitors who prefer reduced motion.</p>
@@ -79,7 +79,7 @@
       <thead><tr><th>Attribute</th><th>Value</th><th>Effect</th></tr></thead>
       <tbody>
         <tr><td><code>preset</code></td><td>name below</td><td>Start from a built-in scene.</td></tr>
-        <tr><td><code>config</code></td><td>JSON</td><td>Settings copied from the studio. Merged on top of the preset.</td></tr>
+        <tr><td><code>config</code></td><td>JSON</td><td>Settings copied from Maille. Merged on top of the preset.</td></tr>
         <tr><td><code>speed</code></td><td>number</td><td>Playback speed, 1 is normal.</td></tr>
         <tr><td><code>paused</code></td><td>present or absent</td><td>Holds the current frame.</td></tr>
         <tr><td><code>motion</code></td><td><code>always</code></td><td>Keeps animating even when the visitor prefers reduced motion.</td></tr>
@@ -106,6 +106,14 @@
     <p style="margin-top:12px">Also available: <code>golden-hour</code>, <code>fine-grain</code>.</p>
   </section>
 
+  <section id="skill">
+    <h2>Claude skill</h2>
+    <p>The site is the quick version. The films behind Maille go further: a photo given its own motion (a head that nods, grass in the wind), several shots cut together with type, rendered frame by frame to a clean MP4. That process is packaged as a skill for Claude, so you can ask for the same kind of film in plain words.</p>
+    <p><a href="maille-skill.zip" download>Download maille-motion.zip</a></p>
+    <p>In the Claude app, upload the zip from the Skills section of your settings. In Claude Code, unzip it into <code>~/.claude/skills/</code>. Then ask for something like “a 10 second vertical loop of koi with the word Calm, rendered to MP4”. Rendering needs Node, Playwright and ffmpeg on your machine.</p>
+    <p>Inside: the method (<code>SKILL.md</code>), a film template with crossfades and titles, a frame-exact render script, and references for every setting and for photo motion.</p>
+  </section>
+
   <section>
     <h2>JavaScript</h2>
 <pre><code>const scene = document.querySelector('maille-scene');
@@ -119,7 +127,7 @@ const engine = Maille.create({ scene: 'waves', width: 1920, height: 1080, cols: 
 engine.render(canvas.getContext('2d'), 3.2);</code></pre>
   </section>
 </main>
-<script src="maille.js?v=e1a37219"></script>
+<script src="maille.js?v=92050992"></script>
 <script>
   // Show the real address in code samples
   if (/^https?:/.test(location.protocol)) document.querySelectorAll('pre code').forEach((c) => { c.textContent = c.textContent.replace(/https:\/\/SITE/g, location.origin); });

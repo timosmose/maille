@@ -1302,7 +1302,7 @@
         textCanvas.width = W; textCanvas.height = H;
         const g = textCanvas.getContext('2d');
         g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
-        const lines = String(isText ? o.text : 'Drop an image\nor a video').split('\n');
+        const lines = String(isText ? o.text : 'Drop an image').split('\n');
         g.font = o.textFont; g.textAlign = 'center'; g.textBaseline = 'middle';
         const widest = Math.max(...lines.map((l) => g.measureText(l).width), 1);
         const size = Math.min((W * 0.86) / widest, (H * 0.8) / (lines.length * 1.05)) * 200;
@@ -1335,7 +1335,7 @@
         (a.wind || []).forEach((w, wi) => {
           const x = Math.round(w.x0 * W), ww = Math.round((w.x1 - w.x0) * W), y0 = Math.round(w.y0 * H), y1 = Math.round(w.y1 * H);
           for (let y = y0; y < y1; y += STRIP) {
-            let d = (y - y0) / Math.max(1, y1 - y0); if (w.up) d = 1 - d;
+            let d = w.flat ? 1 : (y - y0) / Math.max(1, y1 - y0); if (w.up && !w.flat) d = 1 - d;
             const dx = w.amp * k * W * d * d * wave(t, w.f || 1.6, y * 0.045 + wi * 3);
             fxg.drawImage(src, x * iw / W, y * sy, ww * iw / W, STRIP * sy, x + dx, y, ww, STRIP);
           }
@@ -1370,7 +1370,8 @@
         const iw = src.videoWidth || src.naturalWidth || src.width, ih = src.videoHeight || src.naturalHeight || src.height;
         const isVideo = !!src.videoWidth;
         if (!iw || !ih) return;
-        const live = !isText && !!o.source && !!o.anim && o.animAmount > 0;
+        // Light motion: photos, and text too (it ripples like a flag)
+        const live = (isText || !!o.source) && !!o.anim && o.animAmount > 0;
         // A canvas source may be drawn on every frame (procedural animation): sample it each time
         const isCanvas = !isText && !!o.source && typeof HTMLCanvasElement !== 'undefined' && src instanceof HTMLCanvasElement;
         if (src !== lastSrc || isVideo || live || isCanvas) {
@@ -1922,6 +1923,11 @@
     o.source = source || null;
     return o;
   }
+  // Generic light motion for any picture or text, so it feels filmed without a video
+  const MOTION = {
+    photo: { breathe: 0.03, wind: [{ x0: 0, x1: 1, y0: 0.55, y1: 1, amp: 0.007, f: 1.3 }] },
+    text: { breathe: 0.02, wind: [{ x0: 0, x1: 1, y0: 0, y1: 1, amp: 0.014, f: 1.6, flat: true }] },
+  };
   const PRESETS = {
     'alpenglow': { name: 'Alpenglow', config: {} },
     'golden-hour': { name: 'Golden hour', config: { agDaylight: 0.38, agGlow: 0.2, agFireflies: 8, agClouds: 0.8 } },
@@ -1933,7 +1939,7 @@
     'koi': { name: 'Koi pond', config: { scene: 'koi', format: '1:1', cols: 72, count: 7, glitch: 0.015 } },
     'gulls': { name: 'Gulls', config: { scene: 'birds', format: '16:9', cols: 120, count: 5, heading: -15, spread: 20 } },
     'night-ocean': { name: 'Night ocean', config: { scene: 'waves', cols: 96, size: 1.3 } },
-    'type': { name: 'Type', config: { scene: 'text', text: 'MAILLE', cols: 120 } },
+    'type': { name: 'Type', config: { scene: 'text', text: 'MAILLE', cols: 120, anim: MOTION.text } },
     'moo': { name: 'Moo', config: { scene: 'image', src: 'img/cow.jpg', cols: 160, threshold: 0.08, anim: {
       breathe: 0.025,
       wind: [{ x0: 0, x1: 0.36, y0: 0.62, y1: 1, amp: 0.008, f: 1.4 }, { x0: 0.6, x1: 1, y0: 0.35, y1: 0.75, amp: 0.006, f: 1.1, up: true }],
@@ -2000,7 +2006,7 @@
     decode: (s) => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))),
   };
 
-  const Maille = Object.assign({}, AF, { configDefaults, resolve, compact, toEngine, PRESETS, ensureFont, b64, loadSrc: (src) => loadSrc(src).p, version: '1.0.0' });
+  const Maille = Object.assign({}, AF, { configDefaults, resolve, compact, toEngine, PRESETS, MOTION, ensureFont, b64, loadSrc: (src) => loadSrc(src).p, version: '1.0.0' });
   root.Maille = Maille;
 
   if (typeof window === 'undefined' || !window.customElements || customElements.get('maille-scene')) return;
