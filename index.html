@@ -54,7 +54,7 @@
   /* Stage */
   .well { position: relative; min-height: 0; container-type: size; display: grid; place-items: center; background: #0c0b0a; transition: margin-right var(--duration-base) var(--ease-out); }
   .frame { position: relative; aspect-ratio: var(--ar); width: min(100cqw, 100cqh * var(--arn)); }
-  .frame.full { aspect-ratio: auto; width: 100%; height: 100%; }
+  .frame.full { position: absolute; inset: 0; aspect-ratio: auto; width: auto; }
   .frame.drop::after { content: ""; position: absolute; inset: 0; box-shadow: inset 0 0 0 2px var(--color-focus); pointer-events: none; }
   canvas { display: block; width: 100%; height: 100%; }
 
@@ -168,7 +168,7 @@
 <div class="app" id="app">
   <header>
     <a class="brand" href="./"><svg width="20" height="20" viewBox="0 0 160 160" aria-hidden="true"><rect width="160" height="160" rx="36" fill="#BEA5F6"/><path d="M97.47 30H118V60H72V130H42V85.47Z" fill="#030F2B"/></svg>Maille</a>
-    <nav><a href="docs.html">Docs</a><a class="skill" href="docs.html#skill">Claude skill</a><a href="https://timdalverny.com" rel="author">By Tim d'Alverny</a></nav>
+    <nav><a href="docs.html">Docs</a><a class="skill" href="skill.html">Claude skill</a><a href="https://timdalverny.com" rel="author">By Tim d'Alverny</a></nav>
   </header>
 
   <div class="well"><div class="frame" id="frame"><canvas id="cv" aria-label="Animated ASCII scene"></canvas></div></div>

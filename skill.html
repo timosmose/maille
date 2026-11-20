@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Maille for Claude</title>
+<meta name="description" content="A Claude skill that makes animated ASCII films with Maille: scenes, photos brought to life, type, rendered frame by frame to MP4.">
+<meta property="og:title" content="Maille for Claude">
+<meta property="og:description" content="Ask Claude for an animated ASCII film and get an MP4.">
+<meta property="og:image" content="https://maille-pi.vercel.app/og.png">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+  /* Design system of timdalverny.com (dark): warm greys, Inter, pills and soft rings. One reading column. */
+  :root {
+    --gray-1: #12110f; --gray-2: #1d1c1a; --gray-3: #252321; --gray-4: #2d2b28; --gray-5: #34322f; --gray-6: #3d3a37;
+    --gray-10: #918e88; --gray-11: #b6b3ad; --gray-12: #eeece8;
+    --ring: 0 0 0 1px rgb(255 255 255 / 0.08);
+    --sans: "Inter", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--gray-1); color: var(--gray-11); font: 400 16px/26px var(--sans); font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased; padding: 24px max(16px, env(safe-area-inset-left, 0px)) 96px; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--gray-12); outline-offset: 2px; border-radius: 4px; }
+  main { max-width: 760px; margin: 0 auto; display: grid; gap: 64px; }
+  nav { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+  nav span { display: flex; gap: 4px; }
+  nav span a { padding: 5px 12px; border-radius: 999px; color: var(--gray-10); text-decoration: none; transition: color 150ms ease, background-color 150ms ease; }
+  nav span a:hover { color: var(--gray-12); background: var(--gray-2); }
+  .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 500; color: var(--gray-12); text-decoration: none; }
+  h1 { font-size: 40px; line-height: 44px; margin: 0 0 12px; font-weight: 600; color: var(--gray-12); text-wrap: balance; }
+  h2 { margin: 0 0 16px; padding-bottom: 12px; border-bottom: 1px solid var(--gray-4); font: 500 12px/16px var(--sans); text-transform: uppercase; color: var(--gray-11); }
+  p { margin: 0 0 12px; max-width: 62ch; }
+  code { font: 13px var(--mono); }
+  p code { background: var(--gray-2); box-shadow: var(--ring); border-radius: 4px; padding: 1px 5px; }
+
+  /* Hero: the pitch and the download on the left, the starter film playing on the right */
+  .hero { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 40px; align-items: center; }
+  .film { position: relative; aspect-ratio: 9 / 16; border-radius: 16px; overflow: hidden; box-shadow: var(--ring); background: #050506; }
+  .film iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 24px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 18px; border-radius: 999px; font: 500 14px var(--sans); text-decoration: none; color: var(--gray-12); background: var(--gray-2); box-shadow: var(--ring); cursor: pointer; border: 0; transition: background-color 150ms ease; }
+  .btn:hover { background: var(--gray-3); }
+  .btn.primary { background: var(--gray-12); color: var(--gray-1); box-shadow: none; }
+  .btn.primary:hover { background: #fff; }
+  .btn svg { flex: none; }
+  .meta { font-size: 14px; color: var(--gray-10); margin: 12px 0 0; }
+
+  /* Prompts you can copy */
+  .prompts { display: grid; gap: 8px; }
+  .prompt { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; width: 100%; padding: 14px 16px; text-align: left; font: 400 15px/24px var(--sans); color: var(--gray-12); background: var(--gray-2); border: 0; border-radius: 12px; box-shadow: var(--ring); cursor: pointer; transition: background-color 150ms ease; }
+  .prompt:hover { background: var(--gray-3); }
+  .prompt span:last-child { font-size: 12px; color: var(--gray-10); white-space: nowrap; }
+
+  /* Install: one card per place you use Claude */
+  .install { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .card { padding: 20px; border-radius: 12px; background: var(--gray-2); box-shadow: var(--ring); display: grid; gap: 12px; align-content: start; }
+  .card h3 { margin: 0; font: 500 16px/24px var(--sans); color: var(--gray-12); }
+  .card ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; line-height: 22px; }
+  .code { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; padding: 12px 12px 12px 14px; border-radius: 8px; background: var(--gray-1); box-shadow: var(--ring); }
+  .code pre { margin: 0; font: 12px/20px var(--mono); color: var(--gray-12); white-space: pre-wrap; word-break: break-all; }
+  .copy { height: 24px; padding: 0 10px; border: 0; border-radius: 999px; background: var(--gray-3); color: var(--gray-11); font: 500 12px var(--sans); cursor: pointer; }
+  .copy:hover { color: var(--gray-12); background: var(--gray-4); }
+
+  .list { margin: 0; padding: 0; list-style: none; display: grid; }
+  .list li { display: grid; grid-template-columns: 200px minmax(0, 1fr); align-items: baseline; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--gray-4); font-size: 14px; line-height: 22px; }
+  .list li code { color: var(--gray-12); }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--gray-12); color: var(--gray-1); padding: 6px 14px; border-radius: 999px; font: 500 14px var(--sans); opacity: 0; pointer-events: none; transition: opacity 150ms ease; }
+  .toast.on { opacity: 1; }
+
+  @media (max-width: 720px) {
+    h1 { font-size: 32px; line-height: 36px; }
+    .hero { grid-template-columns: 1fr; }
+    .film { width: min(240px, 70vw); justify-self: center; }
+    .install { grid-template-columns: 1fr; }
+    .list li { grid-template-columns: 1fr; gap: 2px; }
+  }
+  nav span { white-space: nowrap; }
+  @media (max-width: 520px) { nav .opt { display: none; } nav span a { padding: 5px 8px; } }
+</style>
+</head>
+<body>
+<main>
+  <nav><a class="brand" href="./"><svg width="20" height="20" viewBox="0 0 160 160" aria-hidden="true"><rect width="160" height="160" rx="36" fill="#BEA5F6"/><path d="M97.47 30H118V60H72V130H42V85.47Z" fill="#030F2B"/></svg>Maille</a><span><a class="opt" href="./">Open Maille</a><a href="docs.html">Docs</a><a href="https://timdalverny.com" rel="author">By Tim d'Alverny</a></span></nav>
+
+  <section class="hero">
+    <div>
+      <h1>Maille for Claude</h1>
+      <p>The site gives you a scene to embed. The skill gives Claude the whole process behind the films: picking scenes, giving a photo its own motion, cutting shots together with type, and rendering every frame to a clean MP4. You describe the film in plain words, Claude builds it.</p>
+      <div class="cta">
+        <a class="btn primary" href="maille-skill.zip" download="maille-motion.zip"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8M4.5 6.5 8 10l3.5-3.5M3 13h10" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>Download the skill</a>
+        <a class="btn" href="https://github.com/timosmose/maille/tree/main/skill/maille-motion">View on GitHub</a>
+      </div>
+      <p class="meta">maille-motion.zip · <span id="size">52 KB</span> · free to use</p>
+    </div>
+    <figure class="film" style="margin:0">
+      <iframe src="film.html" title="The starter film from the skill, playing live" loading="lazy"></iframe>
+    </figure>
+  </section>
+
+  <section>
+    <h2>What to ask</h2>
+    <div class="prompts">
+      <button class="prompt" type="button"><span>Make a 10 second vertical loop of koi with the word “Calm” in the middle, and render it to MP4.</span><span>Copy</span></button>
+      <button class="prompt" type="button"><span>Here is a photo of my dog. Bring it to life in ASCII: the head moves a little and the grass sways. 8 seconds, 1:1.</span><span>Copy</span></button>
+      <button class="prompt" type="button"><span>A 20 second film in three shots: sharks from above, a mountain at dusk, then our name in type. Crossfade between shots.</span><span>Copy</span></button>
+      <button class="prompt" type="button"><span>Give me an ocean scene to embed behind the hero of my site, with the centre left clear for the headline.</span><span>Copy</span></button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Install</h2>
+    <div class="install">
+      <div class="card">
+        <h3>Claude app</h3>
+        <ol>
+          <li>Download the zip above, keep it zipped.</li>
+          <li>In the settings, open the Skills section and upload it. Skills need code execution turned on.</li>
+          <li>Start a new chat and ask for a film.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>Claude Code</h3>
+        <ol>
+          <li>Run this once in a terminal:</li>
+        </ol>
+        <div class="code"><pre id="cc">curl -L https://maille-pi.vercel.app/maille-skill.zip -o /tmp/maille.zip
+unzip -o /tmp/maille.zip -d ~/.claude/skills</pre><button class="copy" type="button" data-copy="cc">Copy</button></div>
+        <ol start="2"><li>Open Claude Code in any folder and ask for a film.</li></ol>
+      </div>
+    </div>
+    <p class="meta">Rendering to MP4 runs on your machine and needs Node 18+, ffmpeg and Playwright (<code>npm i -D playwright</code>). Claude installs what is missing when it can. Stills and previews need nothing.</p>
+  </section>
+
+  <section>
+    <h2>Inside</h2>
+    <ul class="list">
+      <li><code>SKILL.md</code><span>The method, step by step: brief, scenes, photo motion, composition, preview, render, checks.</span></li>
+      <li><code>templates/film.html</code><span>A film as a list of shots on one timeline, with dissolves between shots and titles that resolve out of glyphs.</span></li>
+      <li><code>scripts/render.mjs</code><span>Draws every frame at its exact time and pipes it to ffmpeg. Also writes single stills.</span></li>
+      <li><code>reference/photo-motion.md</code><span>How to make a still photo move: head, jaw, ears, wind in grass, camera drift.</span></li>
+      <li><code>reference/config.md</code><span>Every setting of every scene, and the presets.</span></li>
+      <li><code>assets/maille.js</code><span>The engine, so it works offline.</span></li>
+    </ul>
+  </section>
+</main>
+<div class="toast" id="toast" role="status"></div>
+<script>
+  const toast = (msg) => { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 1600); };
+  const copy = (text) => navigator.clipboard.writeText(text).then(() => toast('Copied'), () => toast('Copy was blocked by the browser'));
+  document.querySelectorAll('.prompt').forEach((b) => b.addEventListener('click', () => copy(b.firstElementChild.textContent)));
+  document.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', () => copy(document.getElementById(b.dataset.copy).textContent)));
+  // Real size of the zip, and the real address in the command
+  fetch('maille-skill.zip', { method: 'HEAD' }).then((r) => { const n = +r.headers.get('content-length'); if (n) document.getElementById('size').textContent = Math.round(n / 1024) + ' KB'; }).catch(() => {});
+  if (/^https?:/.test(location.protocol)) { const c = document.getElementById('cc'); c.textContent = c.textContent.replace('https://maille-pi.vercel.app', location.origin); }
+</script>
+</body>
+</html>

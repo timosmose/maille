@@ -27,11 +27,12 @@
     padding-block: 24px 64px;
   }
   main { max-width: 760px; margin: 0 auto; display: grid; gap: 40px; }
-  nav { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
-  nav a { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line); }
-  nav a:hover { border-color: var(--fg); }
+  nav { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+  nav span a { padding: 5px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; transition: color 150ms ease, background-color 150ms ease; }
+  nav span a:hover { color: var(--fg); background: var(--surface); }
+  .brand { color: var(--fg); text-decoration: none; }
   .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 500; border: 0 !important; }
-  nav span { display: flex; gap: 20px; }
+  nav span { display: flex; gap: 4px; }
   h1 { font-size: 32px; line-height: 1.15; margin: 0 0 8px; font-weight: 700; text-wrap: balance; }
   h2 { font-size: 18px; margin: 0 0 10px; font-weight: 500; }
   p { margin: 0 0 12px; color: #b6b3ad; max-width: 65ch; }
@@ -49,11 +50,13 @@
   .grid maille-scene { aspect-ratio: 16 / 10; border-radius: 8px; overflow: hidden; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.08); }
   figcaption { font: 12px/16px var(--mono); color: var(--muted); }
   a { color: var(--fg); }
+  nav span { white-space: nowrap; }
+  @media (max-width: 520px) { nav .opt { display: none; } nav span a { padding: 5px 8px; } }
 </style>
 </head>
 <body>
 <main>
-  <nav><a class="brand" href="./"><svg width="20" height="20" viewBox="0 0 160 160" aria-hidden="true"><rect width="160" height="160" rx="36" fill="#BEA5F6"/><path d="M97.47 30H118V60H72V130H42V85.47Z" fill="#030F2B"/></svg>Maille</a><span><a href="./">Open Maille</a><a href="https://timdalverny.com" rel="author">By Tim d'Alverny</a></span></nav>
+  <nav><a class="brand" href="./"><svg width="20" height="20" viewBox="0 0 160 160" aria-hidden="true"><rect width="160" height="160" rx="36" fill="#BEA5F6"/><path d="M97.47 30H118V60H72V130H42V85.47Z" fill="#030F2B"/></svg>Maille</a><span><a class="opt" href="./">Open Maille</a><a href="skill.html">Claude skill</a><a href="https://timdalverny.com" rel="author">By Tim d'Alverny</a></span></nav>
 
   <section>
     <h1>Animated ASCII scenes for any website</h1>
@@ -110,10 +113,7 @@
 
   <section id="skill">
     <h2>Claude skill</h2>
-    <p>The site is the quick version. The films behind Maille go further: a photo given its own motion (a head that nods, grass in the wind), several shots cut together with type, rendered frame by frame to a clean MP4. That process is packaged as a skill for Claude, so you can ask for the same kind of film in plain words.</p>
-    <p><a href="maille-skill.zip" download>Download maille-motion.zip</a></p>
-    <p>In the Claude app, upload the zip from the Skills section of your settings. In Claude Code, unzip it into <code>~/.claude/skills/</code>. Then ask for something like “a 10 second vertical loop of koi with the word Calm, rendered to MP4”. Rendering needs Node, Playwright and ffmpeg on your machine.</p>
-    <p>Inside: the method (<code>SKILL.md</code>), a film template with crossfades and titles, a frame-exact render script, and references for every setting and for photo motion.</p>
+    <p>The full process behind the films (photos given their own motion, shots cut together with type, frame-exact MP4 renders) is packaged as a skill for Claude. <a href="skill.html">Get the skill and see how to install it</a>.</p>
   </section>
 
   <section>
