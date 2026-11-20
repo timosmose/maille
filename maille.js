@@ -1176,72 +1176,86 @@ const KOI_TINTS = {
       return { build, frame, resetLanes, bg: def.bg || null, grid: def.grid || null };
     }
 
-    /* ---------------- Waves (side view) ---------------- */
+    /* ---------------- Ocean (night sea in perspective, moon and its glitter path) ---------------- */
+    // Rows below the horizon sample a sum of directional swells in world space (far rows cover more sea,
+    // so they shimmer finer); light comes from the slope facing the moon, crests break into foam.
     function Waves() {
-      let comps = [], sx, sC, crest, slope;
-      const WATER = [0.62, 0.86, 1.08], FOAM = [0.95, 0.98, 1.03];
+      let comps = [], moon, sumA = 1;
+      const DEEP = [0.3, 0.5, 0.78], SEA = [0.42, 0.66, 0.92], FOAM = [0.92, 0.98, 1.06], MOON = [1.06, 1.0, 0.84], GLINT = [1.1, 1.0, 0.8], STAR = [0.8, 0.86, 1.05];
+      const WAVE_CH = [126, 126, 45, 61]; // ~ ~ - =
       function build() {
         const r = mulberry32(ihash(o.seed, 21, 5));
-        comps = [];
+        comps = []; sumA = 0;
+        for (let i = 0; i < 7; i++) {
+          const L = (2.6 + 5 * r()) / (1 + i * 0.6);                 // wavelength, world units
+          const ang = (r() - 0.5) * (0.9 + i * 0.25);               // spread around the main swell
+          const k = TAU / L, A = 0.03 * L * (0.6 + 0.6 * r());
+          comps.push({ kx: Math.sin(ang) * k, kz: Math.cos(ang) * k, w: Math.sqrt(9.8 * k) * 0.55, p: r() * TAU, A });
+          sumA += A;
+        }
+        // short chop on top of the swell
         for (let i = 0; i < 5; i++) {
-          const wl = o.width * (0.35 + 0.8 * r()) / (1 + i * 0.55);
-          const c = o.width * 0.07 * (0.7 + 0.6 * r()) * (1 + i * 0.15);
-          comps.push({ k: TAU / wl, w: (TAU / wl) * c, p: r() * TAU, A: o.height * 0.06 * o.size / (1 + i * 0.65) * (0.7 + 0.6 * r()), sharp: 1.6 + 2 * r() });
+          const L = 0.7 + 0.9 * r(), ang = (r() - 0.5) * 2.2, k = TAU / L, A = 0.045 * L;
+          comps.push({ kx: Math.sin(ang) * k, kz: Math.cos(ang) * k, w: Math.sqrt(9.8 * k) * 0.55, p: r() * TAU, A });
+          sumA += A;
         }
-        sx = new Float32Array((cols + 1) * 3); sC = new Float32Array(cols); crest = new Float32Array(cols); slope = new Float32Array(cols);
-      }
-      function surf(x, t, dir) {
-        let y = 0, pk = 0, A = 0;
-        for (const q of comps) {
-          const p = Math.pow(0.5 + 0.5 * Math.sin(q.k * x - dir * q.w * t + q.p), q.sharp);
-          y += q.A * (p * 2 - 0.6); pk += q.A * p; A += q.A;
-        }
-        surf.pk = pk / A;
-        return o.height * 0.42 - y;
+        moon = { x: 0.28 + 0.44 * r(), y: 0.16 + 0.1 * r(), r: 0.055 };
       }
       function frame(t) {
         const dir = Math.cos((o.heading * Math.PI) / 180) >= -1e-6 ? 1 : -1;
-        const bandH = o.height * 0.3 * (0.6 + 0.4 * o.size);
-        for (let c = 0; c < cols; c++) {
-          const x = c * cw;
-          sx[c * 3] = surf(x + cw * 0.2, t, dir);
-          sx[c * 3 + 2] = surf(x + cw * 0.8, t, dir);
-          sC[c] = surf(x + cw * 0.5, t, dir); crest[c] = surf.pk;
-          slope[c] = (sx[c * 3 + 2] - sx[c * 3]) / (cw * 0.6);
-        }
-        for (let c = 0; c < cols; c++) {
-          const yL = sx[c * 3], yR = sx[c * 3 + 2], yS = sC[c], pk = crest[c];
-          for (let r = 0; r < rows; r++) {
-            const idx = r * cols + c, yc = r * ch + ch / 2, yt = yc - 0.3 * ch, yb = yc + 0.3 * ch;
-            const inC = yc > yS;
-            const cnt = (inC ? 1 : 0) + (yt > yL) + (yb > yL) + (yt > yR) + (yb > yR);
-            const d = yc - yS;
-            if (cnt === 0) {
-              if (o.trails && -d < ch * 3.5 && pk > 0.66) {
-                const f = rnd3(c, r, Math.floor(t * 5 + c * 0.37));
-                if (f < (pk - 0.66) * 2.2) putDash(idx, 0.4 + 0.5 * (1 + d / (ch * 3.5)));
+        const W = o.width, H = o.height, hz = H * 0.42, amp = o.size;
+        const mx = moon.x * W, my = moon.y * H, mr = moon.r * Math.min(W, H) * 1.6;
+        for (let r = 0; r < rows; r++) {
+          const yc = r * ch + ch / 2;
+          if (yc < hz) {
+            // sky: moon disc, halo, a few stars
+            for (let c = 0; c < cols; c++) {
+              const idx = r * cols + c, xc = c * cw + cw / 2;
+              const d = Math.hypot((xc - mx) / mr, (yc - my) / mr);
+              if (d < 1) {
+                const mare = noise2(c * 0.35 + 3, r * 0.35, o.seed + 3);
+                put(idx, d > 0.9 ? EDGE : BODY, clamp(0.98 - d * 0.3 - mare * 0.22, 0, 1), 1, MOON);
+              } else if (o.glow) {
+                if (d < 3.2) putGlow(idx, 0.55 * Math.pow(1 - (d - 1) / 2.2, 2), MOON);
+                else if (rnd3(c, r, 41) < 0.012 * (1 - yc / hz)) putGlow(idx, 0.25 + 0.45 * rnd3(c, r, Math.floor(t * 0.7 + rnd3(c, r, 2) * 9)), STAR);
               }
+            }
+            continue;
+          }
+          const p = (yc - hz) / (H - hz);                       // 0 at the horizon, 1 at the bottom edge
+          const z = 1.2 / (p + 0.035);                           // distance into the sea
+          const fade = clamp(p * 5, 0, 1);                       // far rows melt into the horizon
+          for (let c = 0; c < cols; c++) {
+            const idx = r * cols + c, xc = c * cw + cw / 2;
+            const wx = ((xc - W / 2) / W) * z * 7, wz = z * 2.2;
+            let h = 0, sz = 0, sx = 0;
+            for (const q of comps) {
+              const ph = q.kx * wx + q.kz * wz + dir * q.w * t * (q.kx >= 0 ? 1 : 1) + q.p;
+              const sn = Math.sin(ph), cs = Math.cos(ph);
+              h += q.A * sn; sx += q.A * q.kx * cs; sz += q.A * q.kz * cs;
+            }
+            h *= amp; sx *= amp; sz *= amp;
+            const hn = h / (sumA * amp + 1e-6);                  // -1..1
+            // faces tilted towards the viewer and the moon catch light
+            let lit = clamp(0.5 + sz * 1.6 + hn * 0.35, 0, 1);
+            // moon glitter: a column under the moon, wider near the viewer, made of sparkles on tilted faces
+            const gw = W * (0.025 + 0.11 * p), gd = (xc - mx) / gw;
+            const glit = Math.exp(-gd * gd) * clamp(0.35 + sz * 2.4 + hn * 0.4, 0, 1) * (0.55 + 0.45 * rnd3(c, r, Math.floor(t * 7 + rnd3(c, r, 5) * 4)));
+            const foam = hn > 0.84 - 0.08 * amp && lit > 0.75 && p > 0.12;
+            if (foam && o.trails) { put(idx, HIGH, 1, 0.75 + 0.25 * fade, FOAM); continue; }
+            if (glit > 0.42) { put(idx, glit > 0.75 ? HIGH : BODY, clamp(0.55 + glit * 0.45, 0, 1), 1, GLINT); continue; }
+            if (lit < 0.5) {
+              if (lit > 0.38 && rnd3(c, r, 7) < 0.35) putChar(idx, EDGE, 0.2, 0.5 * fade + 0.2, DEEP, '-');
               continue;
             }
-            if (cnt >= 3 && inC) {
-              if (d > bandH) {
-                if (o.glow) {
-                  const I = clamp(1 - (d - bandH) / (bandH * 1.4), 0, 1) * (0.35 + 0.65 * rnd3(c, r, Math.floor(t * 0.8 + rnd3(c, r, 1) * 5)));
-                  if (I > 0.08) putGlow(idx, I * 0.9, TEAL);
-                }
-                continue;
-              }
-              const p = (d - 0.55 * bandH) / (0.45 * bandH);
-              if (p > 0 && rnd3(c, r, 9) < p) { put(idx, EDGE, 0.35 + 0.4 * (1 - p), 0.85, WATER); continue; }
-              let val = 0.8 - (d / bandH) * 0.6 + clamp(-slope[c], -1, 1) * 0.18;
-              if (d < ch * 1.2 && pk > 0.6) { put(idx, HIGH, 1, 1, FOAM); continue; }
-              if (d < ch * 2.4 && pk > 0.72) val = Math.max(val, 0.88);
-              put(idx, BODY, clamp(val, 0, 1), 0.95, WATER);
-            } else put(idx, EDGE, cnt / 5, 1, pk > 0.6 ? FOAM : WATER);
+            if (lit < 0.72) { putChar(idx, EDGE, lit, 0.5 + 0.5 * fade, SEA, String.fromCharCode(WAVE_CH[ihash(c, r, 3) % 4])); continue; }
+            put(idx, BODY, clamp((lit - 0.45) * (0.6 + 0.4 * fade), 0, 1), 0.9, SEA);
           }
         }
+        // a thin haze line along the horizon
+        if (o.glow) { const r = Math.floor(hz / ch); for (let c = 0; c < cols; c++) putGlow(r * cols + c, 0.25 + 0.2 * noise1(c * 0.3 + t * 0.2, o.seed), MOON); }
       }
-      return { build, frame };
+      return { build, frame, bg: ['#03050c', '#0a1630', '#02040a'], grid: '#0b1220' };
     }
 
     /* ---------------- Landscape (layered ridges) ---------------- */
@@ -1966,17 +1980,14 @@ const KOI_TINTS = {
     'mantas': { name: 'Mantas', config: { scene: 'mantas', format: '3:4', cols: 64, count: 3, heading: -70 } },
     'koi': { name: 'Koi pond', config: { scene: 'koi', format: '1:1', cols: 72, count: 7, glitch: 0.015 } },
     'gulls': { name: 'Gulls', config: { scene: 'birds', format: '16:9', cols: 120, count: 5, heading: -15, spread: 20 } },
-    'night-ocean': { name: 'Night ocean', config: { scene: 'waves', cols: 96, size: 1.3 } },
+    'night-ocean': { name: 'Night ocean', config: { scene: 'waves', cols: 110, size: 1.2 } },
+    'binary-sea': { name: 'Binary sea', config: { scene: 'waves', cols: 130, size: 1, ramp: '10', rampPreset: '10', seed: 4 } },
+    'hammerheads': { name: 'Hammerheads', config: { scene: 'sharks', format: '3:4', cols: 60, speciesSet: 'hammer', count: 5, heading: -60, seed: 12 } },
+    'gold-koi': { name: 'Gold koi', config: { scene: 'koi', format: '1:1', cols: 72, count: 6, koiPads: 3, varieties: ['gold', 'butterfly', 'silver', 'gold', 'kujaku'], glitch: 0.015, seed: 5 } },
+    'koi-lanes': { name: 'Koi lanes', config: { scene: 'koi', format: '16:9', cols: 110, count: 9, sides: 0.26, koiPads: 4, glitch: 0.015, seed: 9 } },
+    'starlings': { name: 'Starlings', config: { scene: 'birds', format: '16:9', cols: 150, count: 12, size: 0.6, heading: -30, spread: 40, seed: 3 } },
+    'block-alps': { name: 'Block alps', config: { cols: 120, ramp: '█▓▒░', rampPreset: '█▓▒░', agDaylight: 0.55, agClouds: 1.2 } },
     'type': { name: 'Type', config: { scene: 'text', text: 'MAILLE', cols: 120, anim: MOTION.text } },
-    'moo': { name: 'Moo', config: { scene: 'image', src: 'img/cow.jpg', cols: 160, threshold: 0.08, anim: {
-      breathe: 0.025,
-      wind: [{ x0: 0, x1: 0.36, y0: 0.62, y1: 1, amp: 0.008, f: 1.4 }, { x0: 0.6, x1: 1, y0: 0.35, y1: 0.75, amp: 0.006, f: 1.1, up: true }],
-      parts: [
-        { kind: 'bob', x: 0.5, y: 0.42, rx: 0.3, ry: 0.42, amp: 0.012, f: 0.9 },
-        { kind: 'jaw', x: 0.495, y: 0.66, rx: 0.11, ry: 0.11, amp: 0.16, f: 1.3 },
-        { kind: 'flick', x: 0.29, y: 0.43, rx: 0.1, ry: 0.12, amp: 0.12, f: 0.7 },
-        { kind: 'flick', x: 0.7, y: 0.48, rx: 0.1, ry: 0.12, amp: 0.12, f: 0.55 },
-      ] } } },
     'alpine-cow': { name: 'Alpine cow', config: { scene: 'image', src: 'img/alpine-cow.jpg', cols: 160, threshold: 0.08, anim: {
       breathe: 0.02,
       wind: [{ x0: 0.8, x1: 1, y0: 0.48, y1: 1, amp: 0.008, f: 1.2, up: true }, { x0: 0.42, x1: 0.8, y0: 0.88, y1: 1, amp: 0.006, f: 1.5 }],

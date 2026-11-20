@@ -6,7 +6,7 @@ Static site, no build step. Deploy the folder as-is (Vercel: framework "Other", 
 
 | File | Role |
 | --- | --- |
-| `index.html` | The tool: scene strip, your image or text, a few settings per scene, embed code, PNG and video |
+| `index.html` | The tool: full-screen preview, scenes in the bottom bar, your image or text, settings in a drawer (main + More), embed code, PNG and video |
 | `maille.js` | The library: rendering engine + `<maille-scene>` web component (the file embeds load) |
 | `e.html` | Iframe embed: `e.html?preset=alpine-day` or `e.html?c=<config>` |
 | `docs.html` | Public docs: script embed, iframe embed, attributes, presets, JS API |

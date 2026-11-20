@@ -37,7 +37,7 @@ Start from the built-in scenes and presets (see `reference/config.md`):
 | `koi` | pond, colour, close framing | `count`, `koiPads`, `varieties`, `sides` |
 | `birds` | sky, motion across frame | `count`, `heading`, `spread` |
 | `alpenglow` | landscape, light changing over time | `agDaylight`, `agCycle`, `agClouds`, palettes |
-| `waves` | horizon, rhythm | `size`, `heading` |
+| `waves` | night sea in perspective, moon and its glitter path | `size` (swell), `heading`, `trails` (foam) |
 | `image` | the user's photo | `src`, `anim`, `threshold`, `color`, `invert` |
 | `text` | titles, a word as the subject | `text`, `anim`, `textFont` |
 
