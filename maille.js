@@ -557,7 +557,7 @@ const KOI_TINTS = {
           const pull = o.sides > 0 ? 0.9 : 0.6, wobble = o.sides > 0 ? 0.8 : 1.6;
           let k = dth * pull / Lb + (noise1((n * st) / (Lb * 2.2), p.seed) - 0.5) * wobble / Lb;
           // side bands are narrow: look a little further, keep a wider margin and allow tighter turns
-          const sb = o.sides > 0, dx = Math.cos(p.th), dy = Math.sin(p.th), look = Lb * (sb ? 1.25 : 1.8), mg = Lb * (sb ? 0.5 : 0.3);
+          const sb = o.sides > 0, dx = Math.cos(p.th), dy = Math.sin(p.th), look = Lb * (sb ? 1.25 : 1.8), mg = Lb * (sb ? 0.5 : o.count <= 4 ? 1 : 0.3); // a few creatures keep well inside
           // top and bottom of a side band: the fish may graze the screen edge, so the corners fill too
           const my = sb ? Lb * 0.1 : mg, ly = sb ? 0.6 : 1;
           const qx = x + dx * look, qy = y + dy * look * ly, out = Math.max(lo + mg - qx, qx - (hi - mg), my - qy, qy - (o.height - my), 0);
@@ -589,6 +589,17 @@ const KOI_TINTS = {
           }
           const km = (sb ? 2 : 1.2) * (1 + 0.25 * (c.bolt != null && curT - c.bolt < BOLT_TURN ? boltCurve(curT - c.bolt, BOLT_TURN) : 0));
           k = clamp(k, -km / Lb, km / Lb);
+          // a creature bigger than the frame cannot turn back on its own radius: when it heads out,
+          // let it turn on a circle that fits the frame, so it always comes back into view
+          const outside = x < 0 || x > o.width || y < 0 || y > o.height;
+          if (out > 0 || outside) {
+            const rFit = 0.32 * Math.min(o.width, o.height);
+            if (outside || rFit < Lb / km) {
+              let ac = Math.atan2(o.height / 2 - y, o.width / 2 - x) - p.th;
+              ac = ((ac % TAU) + TAU * 1.5) % TAU - Math.PI;
+              if (Math.abs(ac) > 0.35) k = (Math.sign(ac) || 1) * Math.max(km / Lb, 1 / rFit);
+            }
+          }
           p.th += k * st;
           p.x.push(x + Math.cos(p.th) * st); p.y.push(y + Math.sin(p.th) * st);
           p.len += st;
@@ -652,6 +663,8 @@ const KOI_TINTS = {
           const sp = SPECIES[names[i % names.length]] || SPECIES.grey, P = PLANS[sp.plan];
           const Lb = o.size * (P.len[0] + P.len[1] * depth) * m, n = o.spinePoints;
           const c = {
+            // a few swimmers or flyers (or big ones) wander inside the frame instead of crossing it, so the scene is never empty
+            wander: !!P.wander || o.count <= 4 || (o.count <= 8 && o.size >= 1.3),
             id: i, slot: (i * 7 + o.seed) % o.count, sp, plan: P, depth, Lb, n, vel: m * P.vel * (0.75 + 0.5 * r()) * (0.7 + 0.3 * depth),
             margin: Lb * (P.reach + 0.6) + cw * 2,
             bw: TAU / (P.burstT[0] + P.burstT[1] * r()), bp: r() * TAU, beatMul: 0.85 + 0.3 * r(),
@@ -665,7 +678,7 @@ const KOI_TINTS = {
           // start somewhere on screen, staggered so they do not travel as one block
           const ext = Math.abs(first.dx) * o.width + Math.abs(first.dy) * o.height;
           c.offset = clamp(-first.t0 + (((i * 0.618 + r() * 0.3) % 1) - 0.5) * 0.9 * ext, 0, first.t1 - first.t0);
-          if (P.wander) {
+          if (c.wander) {
             const rr = mulberry32(ihash(o.seed, i, 777));
             // each fish keeps to its own part of the pond (golden-angle spread), so they cross without piling up
             let hx = 0.5 + 0.32 * Math.sqrt((i + 0.5) / o.count) * Math.cos(i * 2.39996 + o.seed), hy = 0.5 + 0.32 * Math.sqrt((i + 0.5) / o.count) * Math.sin(i * 2.39996 + o.seed);
@@ -679,7 +692,7 @@ const KOI_TINTS = {
               hy = per > 1 ? 0.1 + 0.8 * (k / (per - 1)) : 0.5;
               lane = (0.8 / Math.max(1, per - 1)) * 0.5;
             }
-            c.path = { hx, hy, side, lane, k: Math.floor(i / 2), x: [o.width * hx], y: [o.height * hy], th: rr() * TAU, step: Math.max(2, Lb / 40), len: 0, seed: ihash(o.seed, i, 778) % 9973 };
+            c.path = { hx, hy, side, lane, k: Math.floor(i / 2), x: [o.width * hx], y: [o.height * hy], th: P.wander ? rr() * TAU : ((o.heading + (rr() * 2 - 1) * o.spread) * Math.PI) / 180, step: Math.max(2, Lb / 40), len: 0, seed: ihash(o.seed, i, 778) % 9973 };
             c.offset = Lb * 1.4;
           }
           list.push(c);
@@ -716,11 +729,11 @@ const KOI_TINTS = {
 
       function pose(c, T) {
         const P = c.plan, bt = c.bw * T + c.bp;
-        const U = Uof(c, T), L = P.wander ? null : laneAt(c, U);
+        const U = Uof(c, T), L = c.wander ? null : laneAt(c, U);
         const push = 1 + 0.6 * P.burst * Math.cos(bt);
         c.U = U; c.push = push;
-        if (P.wander) wanderTo(c, U);
-        const n = c.n, ds = c.Lb / (n - 1), uHead = P.wander ? U : L.t0 + (U - L.start);
+        if (c.wander) wanderTo(c, U);
+        const n = c.n, ds = c.Lb / (n - 1), uHead = c.wander ? U : L.t0 + (U - L.start);
         c.uHead = uHead;
         const phase = (U / c.Lb) * TAU * (P.freq || 1), Pt = c.pts;
         c.flex = Math.sin(phase * 0.5 + c.id); c.sweep = Math.sin(phase - TAU * (P.kw || 0.85));
@@ -729,7 +742,7 @@ const KOI_TINTS = {
         for (let i = 0; i < n; i++) {
           const u = uHead - i * ds;
           let tx, ty, bx, by;
-          if (P.wander) { wanderAt(c, u, wv); bx = wv[0]; by = wv[1]; tx = wv[2]; ty = wv[3]; }
+          if (c.wander) { wanderAt(c, u, wv); bx = wv[0]; by = wv[1]; tx = wv[2]; ty = wv[3]; }
           else {
             const m = laneM(L, u), dm = laneDM(L, u);
             tx = L.dx + L.px * dm; ty = L.dy + L.py * dm;
@@ -1205,7 +1218,7 @@ const KOI_TINTS = {
       }
       function frame(t) {
         const dir = Math.cos((o.heading * Math.PI) / 180) >= -1e-6 ? 1 : -1;
-        const W = o.width, H = o.height, hz = H * 0.42, amp = o.size;
+        const W = o.width, H = o.height, hz = H * 0.42, amp = o.size, Wv = Math.max(W, H * 16 / 9); // portrait: same sea, cropped, not squeezed
         const mx = moon.x * W, my = moon.y * H, mr = moon.r * Math.min(W, H) * 1.6;
         for (let r = 0; r < rows; r++) {
           const yc = r * ch + ch / 2;
@@ -1229,7 +1242,7 @@ const KOI_TINTS = {
           const fade = clamp(p * 5, 0, 1);                       // far rows melt into the horizon
           for (let c = 0; c < cols; c++) {
             const idx = r * cols + c, xc = c * cw + cw / 2;
-            const wx = ((xc - W / 2) / W) * z * 7, wz = z * 2.2;
+            const wx = ((xc - W / 2) / Wv) * z * 7, wz = z * 2.2;
             let h = 0, sz = 0, sx = 0;
             for (const q of comps) {
               const ph = q.kx * wx + q.kz * wz + dir * q.w * t * (q.kx >= 0 ? 1 : 1) + q.p;
@@ -1241,7 +1254,7 @@ const KOI_TINTS = {
             // faces tilted towards the viewer and the moon catch light
             let lit = clamp(0.5 + sz * 1.6 + hn * 0.35, 0, 1);
             // moon glitter: a column under the moon, wider near the viewer, made of sparkles on tilted faces
-            const gw = W * (0.025 + 0.11 * p), gd = (xc - mx) / gw;
+            const gw = Wv * (0.025 + 0.11 * p), gd = (xc - mx) / gw;
             const glit = Math.exp(-gd * gd) * clamp(0.35 + sz * 2.4 + hn * 0.4, 0, 1) * (0.55 + 0.45 * rnd3(c, r, Math.floor(t * 7 + rnd3(c, r, 5) * 4)));
             const foam = hn > 0.84 - 0.08 * amp && lit > 0.75 && p > 0.12;
             if (foam && o.trails) { put(idx, HIGH, 1, 0.75 + 0.25 * fade, FOAM); continue; }
@@ -1548,9 +1561,12 @@ const KOI_TINTS = {
         const leafS = [L(K.dusk.leafS[0], K.day.leafS[0]), L(K.dusk.leafS[1], K.day.leafS[1])], leafV = L(K.dusk.leafV, K.day.leafV);
         const rimS = L(K.dusk.rimS, K.day.rimS), cloudS = [L(K.dusk.cloudS[0], K.day.cloudS[0]), L(K.dusk.cloudS[1], K.day.cloudS[1])];
 
-        const H = o.height, Wd = o.width, S = o.size, du = cw / Wd, dv = ch / H, side = -(o.agLight || -1);
+        // Narrower than 16:9 (portrait, square): show the middle of the landscape at its own proportions
+        // instead of squeezing the whole width in. u runs over [u0, 1 - u0].
+        const H = o.height, Wd = o.width, S = o.size, uS = Math.min(1, Wd / H / (16 / 9)), u0 = 0.5 * (1 - uS), Wv = Wd / uS;
+        const du = (cw / Wd) * uS, dv = ch / H, side = -(o.agLight || -1);
         for (let c = 0; c < cols; c++) {
-          const u = (c + 0.5) * du;
+          const u = u0 + (c + 0.5) * du;
           mH[c] = massifH(u);
           rid[c] = H * (0.47 - 0.3 * S * mH[c]);
           far[c] = o.agFar ? H * (0.49 - 0.17 * S * farH(u)) : H * 2;
@@ -1566,7 +1582,7 @@ const KOI_TINTS = {
 
         for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
           const idx = r * cols + c;
-          const y = (r + 0.5) * ch, u = (c + 0.5) * du, v = y / H;
+          const y = (r + 0.5) * ch, u = u0 + (c + 0.5) * du, v = y / H;
 
           // 1. Foreground
           const vc = veg(u, v, y, c, t);
@@ -1663,7 +1679,7 @@ const KOI_TINTS = {
 
           // 7. Sky
           if (o.agSun && kd > 0.3) {
-            const R = Math.min(Wd, H) * 0.045, ds = Math.hypot(u * Wd - Wd * o.agSunX, y - H * o.agSunY);
+            const R = Math.min(Wv, H) * 0.045, ds = Math.hypot((u - o.agSunX) * Wv, y - H * o.agSunY);
             if (ds < R) { put(idx, HIGH, 1, 1.05, P.sun); continue; }
             if (ds < R * 2.2 && rnd3(c, r, 51) < 0.5 * (1 - (ds - R) / (R * 1.2))) { put(idx, EDGE, 0.9, 1.35, P.sun); continue; }
           }
@@ -1693,7 +1709,7 @@ const KOI_TINTS = {
           const by = 0.12 + (i % 6) * 0.035 + 0.012 * Math.sin(t * 0.8 + i * 2);
           const flap = Math.floor(t * 4 + i * 1.3) % 2 ? 'v' : '-';
           for (let k = 0; k < (i % 2 ? 2 : 1); k++) {
-            const c = Math.floor((bx - k * 0.01) / du), r = Math.floor((by + k * 0.01) / dv);
+            const c = Math.floor((bx - k * 0.01 - u0) / du), r = Math.floor((by + k * 0.01) / dv);
             if (c < 0 || r < 0 || c >= cols || r >= rows || kind[r * cols + c]) continue;
             putChar(r * cols + c, EDGE, 0.9, 1, P.bird, k ? (flap === 'v' ? '-' : 'v') : flap);
           }
@@ -1704,7 +1720,7 @@ const KOI_TINTS = {
           const fx = 0.5 + 0.48 * Math.sin(t * 0.11 * (1 + (i % 3) * 0.3) + i * 2.1);
           const fy = 0.68 + 0.18 * Math.sin(t * 0.17 * (1 + (i % 4) * 0.2) + i * 1.3);
           if (Math.sin(t * 1.8 + i * 1.7) < -0.2) continue;
-          const c = Math.floor(fx / du), r = Math.floor(fy / dv);
+          const c = Math.floor((fx - u0) / du), r = Math.floor(fy / dv);
           if (c < 0 || r < 0 || c >= cols || r >= rows) continue;
           putChar(r * cols + c, EDGE, 1, 1.5, P.firefly, '*');
         }
