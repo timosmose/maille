@@ -41,10 +41,14 @@
   code { font: 13px var(--mono); }
   p code { background: var(--gray-2); box-shadow: var(--ring); border-radius: 4px; padding: 1px 5px; }
 
-  /* Hero: the pitch and the download on the left, the starter film playing on the right */
-  .hero { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 40px; align-items: center; }
-  .film { position: relative; aspect-ratio: 9 / 16; border-radius: 16px; overflow: hidden; box-shadow: var(--ring); background: #050506; }
-  .film iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  /* Koi and sharks swim in the margins on wide screens, as on timdalverny.com; the column stays clear */
+  .pond { display: none; }
+  @media (min-width: 1200px) {
+    .pond { --column: 404px; position: fixed; inset: 0; z-index: -1; display: block; pointer-events: none;
+      -webkit-mask-image: linear-gradient(to right, #000 calc(50% - var(--column)), transparent calc(50% - var(--column)), transparent calc(50% + var(--column)), #000 calc(50% + var(--column)));
+      mask-image: linear-gradient(to right, #000 calc(50% - var(--column)), transparent calc(50% - var(--column)), transparent calc(50% + var(--column)), #000 calc(50% + var(--column))); }
+    .pond maille-scene { position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; }
+  }
   .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 24px; }
   .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 18px; border-radius: 999px; font: 500 14px var(--sans); text-decoration: none; color: var(--gray-12); background: var(--gray-2); box-shadow: var(--ring); cursor: pointer; border: 0; transition: background-color 150ms ease; }
   .btn:hover { background: var(--gray-3); }
@@ -78,8 +82,6 @@
 
   @media (max-width: 720px) {
     h1 { font-size: 32px; line-height: 36px; }
-    .hero { grid-template-columns: 1fr; }
-    .film { width: min(240px, 70vw); justify-self: center; }
     .install { grid-template-columns: 1fr; }
     .list li { grid-template-columns: 1fr; gap: 2px; }
   }
@@ -88,10 +90,11 @@
 </style>
 </head>
 <body>
+<div class="pond" aria-hidden="true"><maille-scene id="koi"></maille-scene><maille-scene id="sharks"></maille-scene></div>
 <main>
   <nav><a class="brand" href="./"><svg width="20" height="20" viewBox="0 0 160 160" aria-hidden="true"><rect width="160" height="160" rx="36" fill="#BEA5F6"/><path d="M97.47 30H118V60H72V130H42V85.47Z" fill="#030F2B"/></svg>Maille</a><span><a class="opt" href="./">Open Maille</a><a href="docs.html">Docs</a><a href="https://timdalverny.com" rel="author">By Tim d'Alverny</a></span></nav>
 
-  <section class="hero">
+  <section>
     <div>
       <h1>Maille for Claude</h1>
       <p>The site gives you a scene to embed. The skill gives Claude the whole process behind the films: picking scenes, giving a photo its own motion, cutting shots together with type, and rendering every frame to a clean MP4. You describe the film in plain words, Claude builds it.</p>
@@ -101,9 +104,6 @@
       </div>
       <p class="meta">maille-motion.zip · <span id="size">52 KB</span> · free to use</p>
     </div>
-    <figure class="film" style="margin:0">
-      <iframe src="film.html" title="The starter film from the skill, playing live" loading="lazy"></iframe>
-    </figure>
   </section>
 
   <section>
@@ -153,6 +153,27 @@ unzip -o /tmp/maille.zip -d ~/.claude/skills</pre><button class="copy" type="but
   </section>
 </main>
 <div class="toast" id="toast" role="status"></div>
+<script src="maille.js?v=09c3aba3"></script>
+<script>
+  // Same pond as timdalverny.com: only the ASCII shows, the creatures keep to the two side bands and
+  // dissolve as they reach the column. Koi, with a few sharks passing through.
+  const BARE = { bgAuto: false, background: 'transparent', grid: false, glow: false, ambient: 0, glitch: 0, inkAuto: false, ink: 0.5, brightness: 1.2 };
+  const KOI = { ...BARE, scene: 'koi', seed: 7, count: 7, size: 0.52, koiPads: 6, varieties: ['kohaku', 'sanke', 'tancho', 'kohaku', 'showa', 'sanke', 'kohaku'] };
+  const SHARKS = { ...BARE, scene: 'sharks', seed: 4, count: 3, size: 0.6, trails: true, speciesSet: 'mix' };
+  const COLUMN = 760 + 2 * 24, DISSOLVE = 72;
+  function bands() {
+    const w = innerWidth, r = (v) => Math.round(v * 10000) / 10000, x0 = (w - COLUMN) / 2 / w;
+    return { sides: r(Math.max(0.05, x0 - DISSOLVE / w)), cutout: [r(x0), r(1 - x0), r(DISSOLVE / w)], cols: Math.round(w / 3.4) };
+  }
+  function pond() {
+    if (innerWidth < 1200) return;
+    const b = bands();
+    document.getElementById('koi').config = { ...KOI, ...b };
+    document.getElementById('sharks').config = { ...SHARKS, ...b };
+  }
+  pond();
+  let rt = 0; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(pond, 200); });
+</script>
 <script>
   const toast = (msg) => { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 1600); };
   const copy = (text) => navigator.clipboard.writeText(text).then(() => toast('Copied'), () => toast('Copy was blocked by the browser'));

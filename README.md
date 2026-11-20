@@ -13,8 +13,8 @@ Static site, no build step. Deploy the folder as-is (Vercel: framework "Other", 
 | `vercel.json` | CORS on `maille.js` so other sites can load it, iframe allowed everywhere |
 | `favicon.svg` | Icon |
 | `skill/maille-motion/` | Claude skill: method, film template, frame-exact render script |
-| `maille-skill.zip`, `film.html` | The skill zipped, and its starter film playing live on `skill.html`. Rebuild both after editing the skill or maille.js: `sh skill/build.sh` |
-| `skill.html` | The skill page: download, prompts to try, install for the Claude app and Claude Code |
+| `maille-skill.zip` | The skill zipped. Rebuild after editing the skill or maille.js: `sh skill/build.sh` |
+| `skill.html` | The skill page: download, prompts to try, install for the Claude app and Claude Code; koi and sharks in the margins as on timdalverny.com |
 
 ## Embed
 
