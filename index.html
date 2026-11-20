@@ -10,6 +10,8 @@
 <meta property="og:image" content="https://maille-pi.vercel.app/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=JetBrains+Mono:wght@400;700&display=swap">
@@ -165,7 +167,7 @@
 
 <div class="app" id="app">
   <header>
-    <a class="brand" href="./"><svg width="20" height="20" viewBox="0 0 160 160" aria-hidden="true"><rect width="160" height="160" rx="36" fill="#BEA5F6"/><path d="M98.3 32H116V58H70V128H44V86.3Z" fill="#030F2B" stroke="#030F2B" stroke-width="4" stroke-linejoin="round"/></svg>Maille</a>
+    <a class="brand" href="./"><svg width="20" height="20" viewBox="0 0 160 160" aria-hidden="true"><rect width="160" height="160" rx="36" fill="#BEA5F6"/><path d="M97.47 30H118V60H72V130H42V85.47Z" fill="#030F2B"/></svg>Maille</a>
     <nav><a href="docs.html">Docs</a><a class="skill" href="docs.html#skill">Claude skill</a><a href="https://timdalverny.com" rel="author">By Tim d'Alverny</a></nav>
   </header>
 
@@ -199,7 +201,7 @@
 </div>
 <div class="toast" id="toast" role="status"></div>
 
-<script src="maille.js?v=9fe9ec73"></script>
+<script src="maille.js?v=09c3aba3"></script>
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
@@ -208,11 +210,8 @@
   const FORMATS = { 'Full': null, '16:9': [16, 9], '3:4': [3, 4], '1:1': [1, 1], '9:16': [9, 16] };
   const SCENE_NAMES = { alpenglow: 'Alpenglow', sharks: 'Sharks', mantas: 'Mantas', koi: 'Koi', birds: 'Birds', waves: 'Ocean', landscape: 'Landscape', image: 'Image', text: 'Text' };
   // Scenes in the bar: [preset key, label]
-  const GALLERY = [
-    ['sharks', 'Sharks'], ['hammerheads', 'Hammerheads'], ['koi', 'Koi'], ['gold-koi', 'Gold koi'], ['koi-lanes', 'Koi lanes'], ['mantas', 'Mantas'],
-    ['gulls', 'Gulls'], ['starlings', 'Starlings'], ['alpenglow', 'Alpenglow'], ['golden-hour', 'Golden hour'], ['alpine-day', 'Alpine day'], ['day-cycle', 'Day cycle'],
-    ['block-alps', 'Block alps'], ['night-ocean', 'Ocean'], ['binary-sea', 'Binary sea'], ['alpine-cow', 'Cow'], ['meadow', 'Meadow'], ['type', 'Type'],
-  ];
+  // Scenes in the bar, one per kind: [preset key, label]. Variants come from the settings.
+  const GALLERY = [['sharks', 'Sharks'], ['koi', 'Koi'], ['mantas', 'Mantas'], ['gulls', 'Birds'], ['alpenglow', 'Alpenglow'], ['night-ocean', 'Ocean'], ['alpine-cow', 'Photo'], ['type', 'Type']];
   const RAMPS = [['Classic', '@8%SX#t;:', '@8%'], ['Dense', '@%#*+=-:.', '#*='], ['Letters', 'MWNXK0Okxdol:,.', 'MWN'], ['Blocks', '█▓▒░', '█▓░'], ['Binary', '10', '010'], ['Dots', '●•·', '●•·']];
   const VARIETIES = ['kohaku', 'tancho', 'sanke', 'showa', 'utsuri', 'asagi', 'shusui', 'chagoi', 'kujaku', 'butterfly', 'silver', 'gold'];
   const FONTS = [['700 200px Inter, "Helvetica Neue", Arial, sans-serif', 'Sans'], ['700 200px Georgia, "Times New Roman", serif', 'Serif'], ['700 200px "JetBrains Mono", ui-monospace, monospace', 'Mono']];
@@ -262,7 +261,7 @@
   };
   const fromPreset = (key) => Object.assign(clone(AF.PRESETS[key].config), { format: 'Full' });
   const saved = store.get(LS_STATE);
-  let from = saved ? store.get(LS_FROM) || '' : 'koi-lanes';
+  let from = saved ? store.get(LS_FROM) || '' : 'koi';
   let S = AF.resolve(saved || fromPreset(from));
   let source = null;
 
@@ -389,7 +388,7 @@
     $('drawer').classList.toggle('open', on);
     appEl.classList.toggle('editing', on);
     $('edit').setAttribute('aria-expanded', String(on));
-    $('edit').textContent = on ? 'Done' : 'Edit';
+    $('edit').textContent = on ? 'Hide' : 'Edit';
   }
   $('edit').addEventListener('click', () => openDrawer(!$('drawer').classList.contains('open')));
   $('close').addEventListener('click', () => openDrawer(false));
@@ -530,6 +529,8 @@
   window.maille = { engine, get state() { return S; }, seek(t) { playing = false; simT = t; engine.render(ctx, t); } };
 
   applyFormat(); buildUI(); buildStrip(); fit(); syncSrc();
+  // settings open from the start on wide screens; on phones they wait for Edit
+  if (matchMedia('(min-width: 861px)').matches) openDrawer(true);
   if (document.fonts) document.fonts.ready.then(() => engine.refresh());
   requestAnimationFrame(tick);
 })();

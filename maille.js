@@ -59,7 +59,7 @@
     gull: {
       plan: 'bird', tint: [0.95, 0.98, 1.04], wrist: 0.6, beat: 1.5, glide: 0.35, beatAmp: 0.9, dihedral: 0.1,
       prof: [[0, 0], [0.03, 0.045], [0.08, 0.07], [0.15, 0.08], [0.3, 0.11], [0.5, 0.1], [0.65, 0.065], [0.72, 0.055], [0.9, 0.075], [1, 0.07]],
-      wing: [[0.2, 0], [0.18, 0.3], [0.2, 0.58], [0.34, 0.9], [0.5, 1.15], [0.55, 1.1], [0.5, 0.88], [0.46, 0.58], [0.5, 0.3], [0.52, 0]],
+      wing: [[0.2, 0], [0.17, 0.3], [0.17, 0.6], [0.26, 0.82], [0.42, 1.04], [0.58, 1.22], [0.62, 1.16], [0.54, 0.98], [0.48, 0.62], [0.5, 0.3], [0.52, 0]],
     },
     stork: {
       plan: 'bird', tint: [1, 1, 1.02], wrist: 0.7, beat: 1.05, glide: 0.6, beatAmp: 0.75, dihedral: 0.06, legs: true,
@@ -69,6 +69,7 @@
   };
 
   const CONTOUR = ".,'`-_/\\|():;";
+  const TIP_INK = [0.42, 0.44, 0.5];
   const MANTLE = [0.64, 0.69, 0.78], BILL_YELLOW = [1.3, 1.05, 0.4], BILL_SPOT = [1.36, 0.42, 0.3], BILL_RED = [1.36, 0.46, 0.3];
 
   const DEFAULTS = {
@@ -459,7 +460,7 @@ const KOI_TINTS = {
         },
       },
       bird: {
-        rigid: true, reach: 1.25, burst: 0.08, burstT: [4, 3], vel: 0.13, len: [0.2, 0.12], meander: [0.7, 0.7], wl: [6, 5], bankK: 11, shadowMul: 2.8,
+        rigid: true, reach: 1.25, burst: 0.08, burstT: [4, 3], vel: 0.09, len: [0.2, 0.12], meander: [0.7, 0.7], wl: [6, 5], bankK: 11, shadowMul: 2.8,
         span(c, a, side) {
           const bk = 1 - 0.12 * c.bank * side, f = c.f * bk, f2 = (c.f2 || c.f) * bk, sp = c.sp;
           let x = a / f;
@@ -495,12 +496,12 @@ const KOI_TINTS = {
           let val = 0.78 + 0.22 * tilt;
           val *= 0.94 + 0.06 * Math.sin(x * 55); // feather rows
           if (sp.legs) {
-            if (sw > 0.42 + x * 0.04 || x > 1.05) { out.kd = DARK; val = 0.16 + 0.08 * Math.sin(x * 40); }
+            if (sw > 0.42 + x * 0.04 || x > 1.05) { out.tint = TIP_INK; val = 0.28 + 0.06 * Math.sin(x * 40); }
           } else if (x > 1.0) {
             // black primaries, a white mirror near the very tip
             const mirror = x > 1.1 && x < 1.2 && !trailing && sw > 0.3;
             if (mirror) { out.tint = sp.tint; val = 0.82; }
-            else { out.kd = DARK; val = 0.1; }
+            else { out.tint = TIP_INK; val = 0.3 + 0.08 * tilt; } // charcoal, so tips still read against a dark sea
           } else {
             out.tint = trailing ? sp.tint : MANTLE;
             val = trailing ? 0.86 : val * 0.82;
@@ -518,7 +519,8 @@ const KOI_TINTS = {
       sharks: { water: true, glowTint: TEAL, species: null },
       mantas: { water: true, glowTint: [0.28, 0.62, 0.98], species: ['manta'], bg: ['#03060c', '#05101c', '#02040a'], grid: '#0b1119' },
       koi: { water: true, pond: true, trails: false, glowTint: [0.3, 0.7, 0.55], species: ['koi'], varieties: ['kohaku', 'showa', 'asagi', 'sanke', 'tancho', 'utsuri', 'kujaku', 'shusui', 'kohaku', 'chagoi', 'butterfly', 'silver'], bg: ['#030705', '#06110d', '#020504'], grid: '#0b130f' },
-      birds: { water: false, glowTint: [0.5, 0.56, 0.66], species: ['gull', 'gull', 'stork', 'gull'], trails: false },
+      // seen from above, over a dark sea: the glitter of the water drifts below, shadows fall far down on it
+      birds: { water: true, glowTint: [0.36, 0.66, 0.86], species: ['gull', 'gull', 'stork', 'gull'], trails: false, bg: ['#04101a', '#071a28', '#030b13'], grid: '#0a1822' },
     };
 
     function Creatures(name) {
@@ -766,7 +768,7 @@ const KOI_TINTS = {
           c.f2 = Math.max(0.22, Math.cos(th2));
           c.fold = 1 - 0.38 * g * Math.max(0, Math.cos(c.phi - 0.4));
           // wings sweep forward on the downstroke, back on the upstroke; swept back a little when gliding
-          c.sweep = 0.07 * g * Math.cos(c.phi) + 0.035 * (1 - g);
+          c.sweep = 0.08 * g * Math.cos(c.phi) + 0.13 * (1 - g) + 0.05; // the hand always angles back at the wrist, gull-like
         }
         // bbox
         const ext = c.Lb * (P.reach + 0.15);
@@ -1979,7 +1981,7 @@ const KOI_TINTS = {
     'sharks': { name: 'Sharks', config: { scene: 'sharks', format: '3:4', cols: 56 } },
     'mantas': { name: 'Mantas', config: { scene: 'mantas', format: '3:4', cols: 64, count: 3, heading: -70 } },
     'koi': { name: 'Koi pond', config: { scene: 'koi', format: '1:1', cols: 72, count: 7, glitch: 0.015 } },
-    'gulls': { name: 'Gulls', config: { scene: 'birds', format: '16:9', cols: 120, count: 5, heading: -15, spread: 20 } },
+    'gulls': { name: 'Gulls', config: { scene: 'birds', format: '16:9', cols: 170, count: 10, size: 0.7, heading: -15, spread: 25, seed: 6 } },
     'night-ocean': { name: 'Night ocean', config: { scene: 'waves', cols: 110, size: 1.2 } },
     'binary-sea': { name: 'Binary sea', config: { scene: 'waves', cols: 130, size: 1, ramp: '10', rampPreset: '10', seed: 4 } },
     'hammerheads': { name: 'Hammerheads', config: { scene: 'sharks', format: '3:4', cols: 60, speciesSet: 'hammer', count: 5, heading: -60, seed: 12 } },

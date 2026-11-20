@@ -7,6 +7,8 @@
 <meta name="description" content="Embed animated ASCII scenes from Maille in any website.">
 <meta property="og:image" content="https://maille-pi.vercel.app/og.png">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=JetBrains+Mono:wght@400&display=swap">
@@ -51,7 +53,7 @@
 </head>
 <body>
 <main>
-  <nav><a class="brand" href="./"><svg width="20" height="20" viewBox="0 0 160 160" aria-hidden="true"><rect width="160" height="160" rx="36" fill="#BEA5F6"/><path d="M98.3 32H116V58H70V128H44V86.3Z" fill="#030F2B" stroke="#030F2B" stroke-width="4" stroke-linejoin="round"/></svg>Maille</a><span><a href="./">Open Maille</a><a href="https://timdalverny.com" rel="author">By Tim d'Alverny</a></span></nav>
+  <nav><a class="brand" href="./"><svg width="20" height="20" viewBox="0 0 160 160" aria-hidden="true"><rect width="160" height="160" rx="36" fill="#BEA5F6"/><path d="M97.47 30H118V60H72V130H42V85.47Z" fill="#030F2B"/></svg>Maille</a><span><a href="./">Open Maille</a><a href="https://timdalverny.com" rel="author">By Tim d'Alverny</a></span></nav>
 
   <section>
     <h1>Animated ASCII scenes for any website</h1>
@@ -127,7 +129,7 @@ const engine = Maille.create({ scene: 'waves', width: 1920, height: 1080, cols: 
 engine.render(canvas.getContext('2d'), 3.2);</code></pre>
   </section>
 </main>
-<script src="maille.js?v=9fe9ec73"></script>
+<script src="maille.js?v=09c3aba3"></script>
 <script>
   // Show the real address in code samples
   if (/^https?:/.test(location.protocol)) document.querySelectorAll('pre code').forEach((c) => { c.textContent = c.textContent.replace(/https:\/\/SITE/g, location.origin); });
