@@ -5,9 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Maille for Claude</title>
 <meta name="description" content="A Claude skill that makes animated ASCII films with Maille: scenes, photos brought to life, type, rendered frame by frame to MP4.">
+<link rel="canonical" href="https://maille-pi.vercel.app/skill.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Maille">
+<meta property="og:url" content="https://maille-pi.vercel.app/skill.html">
 <meta property="og:title" content="Maille for Claude">
-<meta property="og:description" content="Ask Claude for an animated ASCII film and get an MP4.">
-<meta property="og:image" content="https://maille-pi.vercel.app/og.png">
+<meta property="og:description" content="A Claude skill that makes animated ASCII films with Maille: scenes, photos brought to life, type, rendered frame by frame to MP4.">
+<meta property="og:image" content="https://maille-pi.vercel.app/og-skill.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Maille for Claude, ask Claude for an animated ASCII film">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Maille for Claude">
+<meta name="twitter:description" content="A Claude skill that makes animated ASCII films with Maille: scenes, photos brought to life, type, rendered frame by frame to MP4.">
+<meta name="twitter:image" content="https://maille-pi.vercel.app/og-skill.png">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -87,12 +98,13 @@
   }
   nav span { white-space: nowrap; }
   @media (max-width: 520px) { nav .opt { display: none; } nav span a { padding: 5px 8px; } }
+  .ver { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; margin-left: -2px; border-radius: 999px; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12); font: 500 12px/1 "Inter", system-ui, sans-serif; color: #918e88; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
 <div class="pond" aria-hidden="true"><maille-scene id="koi" dpr="1"></maille-scene><maille-scene id="sharks" dpr="1"></maille-scene></div>
 <main>
-  <nav><a class="brand" href="./"><svg width="20" height="20" viewBox="0 0 160 160" aria-hidden="true"><rect width="160" height="160" rx="36" fill="#BEA5F6"/><path d="M97.47 30H118V60H72V130H42V85.47Z" fill="#030F2B"/></svg>Maille</a><span><a class="opt" href="./">Open Maille</a><a href="docs.html">Docs</a><a href="https://timdalverny.com" rel="author">By Tim d'Alverny</a></span></nav>
+  <nav><a class="brand" href="./"><svg width="20" height="20" viewBox="0 0 160 160" aria-hidden="true"><rect width="160" height="160" rx="36" fill="#BEA5F6"/><path d="M97.47 30H118V60H72V130H42V85.47Z" fill="#030F2B"/></svg>Maille<span class="ver">v1.0</span></a><span><a class="opt" href="./">Open Maille</a><a href="docs.html">Docs</a><a href="https://timdalverny.com" rel="author">By Tim d'Alverny</a></span></nav>
 
   <section>
     <div>
