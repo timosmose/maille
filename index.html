@@ -205,7 +205,7 @@
 </div>
 <div class="toast" id="toast" role="status"></div>
 
-<script src="maille.js?v=7336825d"></script>
+<script src="maille.js?v=d88a6b3b"></script>
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
@@ -215,7 +215,7 @@
   const SCENE_NAMES = { alpenglow: 'Alpenglow', sharks: 'Sharks', mantas: 'Mantas', koi: 'Koi', birds: 'Birds', waves: 'Ocean', landscape: 'Landscape', image: 'Image', text: 'Text' };
   // Scenes in the bar: [preset key, label]
   // Scenes in the bar, one per kind: [preset key, label]. Variants come from the settings.
-  const GALLERY = [['sharks', 'Sharks'], ['koi', 'Koi'], ['mantas', 'Mantas'], ['gulls', 'Birds'], ['alpenglow', 'Alpenglow'], ['night-ocean', 'Ocean'], ['alpine-cow', 'Photo'], ['type', 'Type']];
+  const GALLERY = [['sharks', 'Sharks'], ['koi', 'Koi'], ['mantas', 'Mantas'], ['gulls', 'Birds'], ['alpenglow', 'Alpenglow'], ['night-ocean', 'Ocean'], ['photo', 'Your photo'], ['type', 'Type']];
   const RAMPS = [['Classic', '@8%SX#t;:', '@8%'], ['Dense', '@%#*+=-:.', '#*='], ['Letters', 'MWNXK0Okxdol:,.', 'MWN'], ['Blocks', '█▓▒░', '█▓░'], ['Binary', '10', '010'], ['Dots', '●•·', '●•·']];
   const VARIETIES = ['kohaku', 'tancho', 'sanke', 'showa', 'utsuri', 'asagi', 'shusui', 'chagoi', 'kujaku', 'butterfly', 'silver', 'gold'];
   const FONTS = [['700 200px Inter, "Helvetica Neue", Arial, sans-serif', 'Sans'], ['700 200px Georgia, "Times New Roman", serif', 'Serif'], ['700 200px "JetBrains Mono", ui-monospace, monospace', 'Mono']];
@@ -258,7 +258,7 @@
   ];
 
   // ---------- state ----------
-  const LS_STATE = 'maille:state3', LS_FROM = 'maille:from3';
+  const LS_STATE = 'maille:state4', LS_FROM = 'maille:from4';
   const store = {
     get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage full or unavailable */ } },
@@ -422,12 +422,17 @@
   function buildStrip() {
     const strip = $('strip');
     for (const [key, label] of GALLERY) {
-      if (!AF.PRESETS[key]) continue;
+      const photo = key === 'photo'; // opens the file picker: the photo scene is always the visitor's own
+      if (!photo && !AF.PRESETS[key]) continue;
       const b = document.createElement('button'); b.className = 'tile'; b.dataset.key = key;
-      const sc = document.createElement('maille-scene'); sc.setAttribute('preset', key);
-      const cfg = AF.PRESETS[key].config, heavy = !cfg.scene || cfg.scene === 'alpenglow';
-      // small tiles read better with a coarser grain
-      sc.setAttribute('config', JSON.stringify(Object.assign({ cols: Math.min(cfg.cols || 200, heavy ? 64 : 44) }, key === 'type' ? { text: 'Aa' } : {})));
+      const sc = document.createElement('maille-scene');
+      if (photo) sc.setAttribute('config', JSON.stringify({ scene: 'text', text: '+', cols: 30, anim: AF.MOTION.text, glitch: 0 }));
+      else {
+        sc.setAttribute('preset', key);
+        const cfg = AF.PRESETS[key].config, heavy = !cfg.scene || cfg.scene === 'alpenglow';
+        // small tiles read better with a coarser grain
+        sc.setAttribute('config', JSON.stringify(Object.assign({ cols: Math.min(cfg.cols || 200, heavy ? 64 : 44) }, key === 'type' ? { text: 'Aa' } : {})));
+      }
       // tiles hold a still and only move while hovered, focused or selected: eight live scenes cost too much
       sc.setAttribute('aria-hidden', 'true'); sc.setAttribute('paused', '');
       const name = document.createElement('span'); name.textContent = label;
@@ -436,7 +441,7 @@
       const live = (on) => { if (on || b.dataset.key === from) sc.removeAttribute('paused'); else sc.setAttribute('paused', ''); };
       b.addEventListener('pointerenter', () => live(true)); b.addEventListener('pointerleave', () => live(false));
       b.addEventListener('focus', () => live(true)); b.addEventListener('blur', () => live(false));
-      b.addEventListener('click', () => loadPreset(key));
+      b.addEventListener('click', () => (photo ? $('file').click() : loadPreset(key)));
       strip.appendChild(b);
     }
     syncStrip();
@@ -472,7 +477,7 @@
       if (!data.startsWith('data:image/webp')) data = c.toDataURL('image/jpeg', 0.75);
       URL.revokeObjectURL(url);
       const keep = S.scene === 'image' ? { color: S.color, invert: S.invert, threshold: S.threshold } : { threshold: 0.06 };
-      setState(Object.assign({}, S, keep, { scene: 'image', src: data, anim: clone(AF.MOTION.photo), animAmount: 1, size: 1, cols: Math.max(S.cols, 140) }), '');
+      setState(Object.assign({}, S, keep, { scene: 'image', src: data, anim: clone(AF.MOTION.photo), animAmount: 1, size: 1, cols: Math.max(S.cols, 140) }), 'photo');
       openDrawer(true);
     };
     img.onerror = () => { URL.revokeObjectURL(url); toast('That image could not be read'); };

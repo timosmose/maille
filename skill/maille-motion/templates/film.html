@@ -18,7 +18,7 @@
  *
  * Shot:  { from, to, preset?, config?, offset? }
  *   from, to   seconds on the film timeline. Two shots that overlap crossfade over the overlap.
- *   preset     a built-in Maille preset name (sharks, hammerheads, koi, gold-koi, koi-lanes, mantas, gulls, starlings, alpenglow, night-ocean, binary-sea, meadow, type...)
+ *   preset     a built-in Maille preset name (sharks, hammerheads, koi, gold-koi, koi-lanes, mantas, gulls, starlings, alpenglow, night-ocean, binary-sea, type...)
  *   config     any Maille setting, merged on top of the preset (see reference/config.md)
  *   offset     seconds added to the shot's own clock, to start it mid-motion
  *
@@ -37,8 +37,9 @@ const FONT = '"JetBrains Mono", ui-monospace, monospace';
 
 const SHOTS = [
   { from: 0, to: 6, preset: 'koi', config: { count: 6, cols: 64, seed: 11 } },
-  // A photo: put the file next to this page and use src: 'photo.jpg', with anim from reference/photo-motion.md
-  { from: 5, to: 11, preset: 'meadow', config: { cols: 120, src: 'https://maille-pi.vercel.app/img/meadow.jpg' } },
+  { from: 5, to: 11, preset: 'alpenglow', config: { cols: 110, agDaylight: 0.15 } },
+  // A photo of yours: put the file next to this page, then
+  // { from: 10, to: 16, config: { scene: 'image', src: 'photo.jpg', cols: 140, anim: Maille.MOTION.photo } },
   { from: 10, to: 15, preset: 'type', config: { text: 'MAILLE', cols: 70, seed: 3 } },
 ];
 const TITLES = [

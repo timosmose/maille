@@ -40,7 +40,7 @@ A config is a plain object. Anything left out takes its default. `Maille.resolve
 
 ## Presets
 
-`alpenglow`, `golden-hour`, `alpine-day`, `day-cycle`, `fine-grain`, `sharks`, `mantas`, `koi`, `gulls`, `night-ocean`, `type`, `alpine-cow`, `meadow`, `binary-sea`, `hammerheads`, `gold-koi`, `koi-lanes`, `starlings`, `block-alps`. `Maille.PRESETS[name].config` holds each one.
+`alpenglow`, `golden-hour`, `alpine-day`, `day-cycle`, `fine-grain`, `sharks`, `mantas`, `koi`, `gulls`, `night-ocean`, `type`, `binary-sea`, `hammerheads`, `gold-koi`, `koi-lanes`, `starlings`, `block-alps`. `Maille.PRESETS[name].config` holds each one.
 
 ## Engine
 

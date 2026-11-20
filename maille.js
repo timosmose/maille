@@ -2035,21 +2035,6 @@ const KOI_TINTS = {
     'starlings': { name: 'Starlings', config: { scene: 'birds', format: '16:9', cols: 150, count: 12, size: 0.6, heading: -30, spread: 40, seed: 3 } },
     'block-alps': { name: 'Block alps', config: { cols: 120, ramp: '█▓▒░', rampPreset: '█▓▒░', agDaylight: 0.55, agClouds: 1.2 } },
     'type': { name: 'Type', config: { scene: 'text', text: 'MAILLE', cols: 120, anim: MOTION.text } },
-    'alpine-cow': { name: 'Alpine cow', config: { scene: 'image', src: 'img/alpine-cow.jpg', cols: 160, threshold: 0.08, anim: {
-      breathe: 0.02,
-      wind: [{ x0: 0.8, x1: 1, y0: 0.48, y1: 1, amp: 0.008, f: 1.2, up: true }, { x0: 0.42, x1: 0.8, y0: 0.88, y1: 1, amp: 0.006, f: 1.5 }],
-      parts: [
-        { kind: 'bob', x: 0.24, y: 0.76, rx: 0.22, ry: 0.32, amp: 0.012, f: 0.8 },
-        { kind: 'flick', x: 0.14, y: 0.62, rx: 0.08, ry: 0.07, amp: 0.15, f: 0.6 },
-        { kind: 'flick', x: 0.38, y: 0.6, rx: 0.08, ry: 0.07, amp: 0.15, f: 0.47 },
-      ] } } },
-    'meadow': { name: 'Meadow', config: { scene: 'image', src: 'img/meadow.jpg', cols: 180, threshold: 0.06, anim: {
-      breathe: 0.025,
-      wind: [{ x0: 0, x1: 1, y0: 0.5, y1: 1, amp: 0.01, f: 1.3 }],
-      parts: [
-        { kind: 'sway', x: 0.1, y: 0.3, rx: 0.12, ry: 0.28, amp: 0.012, f: 0.7 },
-        { kind: 'sway', x: 0.88, y: 0.4, rx: 0.1, ry: 0.2, amp: 0.012, f: 0.6 },
-      ] } } },
   };
   // Image sources by URL, loaded once and shared by every scene on the page
   const srcCache = new Map();
