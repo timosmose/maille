@@ -230,7 +230,17 @@
     const KMIX = [0, 0, 0], KFOG = [0, 0, 0];
     const kmix = (a, b, t) => { KMIX[0] = a[0] + (b[0] - a[0]) * t; KMIX[1] = a[1] + (b[1] - a[1]) * t; KMIX[2] = a[2] + (b[2] - a[2]) * t; return KMIX; };
     const ksmooth = (x, a, b) => { const u = clamp((x - a) / (b - a), 0, 1); return u * u * (3 - 2 * u); };
-    const KOI_TINTS = {
+    // A touched koi's dart: eases in over a fraction of a second, then eases out,
+// so the speed and the turn swell and settle instead of snapping.
+const BOLT_RUN = 1.9, BOLT_TURN = 1.5;
+function boltCurve(t, len) {
+  const rise = 0.22;
+  if (t <= 0 || t >= len) return 0;
+  if (t < rise) { const u = t / rise; return u * u * (3 - 2 * u); }
+  const u = (t - rise) / (len - rise);
+  return 0.5 + 0.5 * Math.cos(Math.PI * u);
+}
+const KOI_TINTS = {
       white: [1.05, 1.03, 0.98], red: [1.38, 0.4, 0.22], black: [0.3, 0.32, 0.4], gold: [1.28, 0.98, 0.46],
       silver: [0.98, 1.01, 1.08], orange: [1.4, 0.66, 0.26], blue: [0.58, 0.74, 0.98], bronze: [1.12, 0.8, 0.54],
       net: [0.66, 0.7, 0.8], fin: [0.9, 0.97, 1], redFin: [1.2, 0.62, 0.48],
@@ -564,13 +574,19 @@
             const p2 = c2.path, j = p2.x.length - 1, ex = p2.x[j] - x, ey = p2.y[j] - y, d = Math.hypot(ex, ey), R = (Lb + c2.Lb) * 0.75;
             if (d < R && d > 1) k += (dx * ey - dy * ex >= 0 ? -1 : 1) * 1.1 * (1 - d / R) / Lb;
           }
+          // just touched: turn hard away from where the pointer was, for the length of the dart
+          if (c.bolt != null && curT - c.bolt < BOLT_TURN) {
+            const ex = c.boltX - x, ey = c.boltY - y, turn = dx * ey - dy * ex >= 0 ? 1 : -1;
+            k -= turn * 2.2 * boltCurve(curT - c.bolt, BOLT_TURN) / Lb;
+          }
           // the pointer: a moving one startles the fish away, a resting one draws them in
           if (ptr) {
             const age = curT - ptr.t, ex = ptr.x - x, ey = ptr.y - y, d = Math.hypot(ex, ey), turn = dx * ey - dy * ex >= 0 ? 1 : -1;
             if (age < 1.6 && d < Lb * 2.4) k -= turn * 1.6 * (1 - d / (Lb * 2.4)) / Lb;
-            else if (age > 1.8 && age < 16 && d < Lb * 5 && d > Lb * 0.8) k += turn * 0.7 * Math.min(1, (age - 1.8) / 1.5) / Lb;
+            else if (age > 1.8 && age < 16 && d < Lb * 5 && d > Lb * 1.4 && !(c.bolt != null && curT - c.bolt < 4)) k += turn * 0.7 * Math.min(1, (age - 1.8) / 1.5) / Lb;
           }
-          k = clamp(k, -(sb ? 2 : 1.2) / Lb, (sb ? 2 : 1.2) / Lb);
+          const km = (sb ? 2 : 1.2) * (1 + 0.25 * (c.bolt != null && curT - c.bolt < BOLT_TURN ? boltCurve(curT - c.bolt, BOLT_TURN) : 0));
+          k = clamp(k, -km / Lb, km / Lb);
           p.th += k * st;
           p.x.push(x + Math.cos(p.th) * st); p.y.push(y + Math.sin(p.th) * st);
           p.len += st;
@@ -1028,7 +1044,19 @@
           let f = 0;
           if (ptr && T - ptr.t < 1.6) { const d = Math.hypot(c.pts[0] - ptr.x, c.pts[1] - ptr.y); f = Math.max(0, 1 - d / (c.Lb * 2.2)); }
           c.fear = (c.fear || 0) * 0.92 + f * 0.08;
-          c.offset += c.vel * dt * 2.2 * c.fear;
+          // the pointer on the fish itself (moving or still): it bolts, fast, off in a new direction
+          if (ptr && (c.bolt == null || T - c.bolt > BOLT_RUN)) {
+            const P = c.pts, R = c.Lb * 0.24;
+            for (let j = 0; j < c.n; j++) {
+              if (Math.hypot(P[2 * j] - ptr.x, P[2 * j + 1] - ptr.y) < R) {
+                c.bolt = T; c.boltX = ptr.x; c.boltY = ptr.y;
+                if (def.pond) pokes.push({ x: P[2 * (c.n - 1)], y: P[2 * (c.n - 1) + 1], t: T, s: 0.35 }); // a flick of the tail
+                break;
+              }
+            }
+          }
+          const burst = c.bolt == null || T - c.bolt > BOLT_RUN ? 0 : 3.4 * boltCurve(T - c.bolt, BOLT_RUN);
+          c.offset += c.vel * dt * (2.2 * c.fear + burst);
         }
         for (const c of list) pose(c, T);
         const useContour = o.contour !== false;
