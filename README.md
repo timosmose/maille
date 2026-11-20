@@ -11,7 +11,8 @@ Static site, no build step. Deploy the folder as-is (Vercel: framework "Other", 
 | `e.html` | Iframe embed: `e.html?preset=alpine-day` or `e.html?c=<config>` |
 | `docs.html` | Public docs: script embed, iframe embed, attributes, presets, JS API |
 | `vercel.json` | CORS on `maille.js` so other sites can load it, iframe allowed everywhere |
-| `favicon.svg` | Icon |
+| `favicon.svg`, `favicon.ico`, `apple-touch-icon.png` | The Maille mark |
+| `fonts/` | JetBrains Mono (OFL), served with the script so embeds make no third-party font request |
 | `skill/maille-motion/` | Claude skill: method, film template, frame-exact render script |
 | `maille-skill.zip` | The skill zipped. Rebuild after editing the skill or maille.js: `sh skill/build.sh` |
 | `skill.html` | The skill page: download, prompts to try, install for the Claude app and Claude Code; koi and sharks in the margins as on timdalverny.com |
@@ -24,8 +25,3 @@ Static site, no build step. Deploy the folder as-is (Vercel: framework "Other", 
 ```
 
 The **Copy embed code** button writes this with your exact settings in `config`.
-
-## To do before sharing publicly
-
-- Link previews: `og.png` (1200×630) is included. Once the domain is known, make the `og:image` URL in `index.html` absolute (`https://YOUR-DOMAIN/og.png`) and add the same tag to `docs.html`.
-- Optional: minify `maille.js` (`npx terser maille.js -c -m -o maille.js`), about 64 KB down to 35 KB.

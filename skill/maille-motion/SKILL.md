@@ -11,7 +11,7 @@ The website (https://maille-pi.vercel.app) is the quick version: pick a scene, d
 
 ## What you need
 
-- `assets/maille.js` (bundled copy of the engine). Fetch the latest with `curl -o maille.js https://maille-pi.vercel.app/maille.js` when the network allows, otherwise use the bundled one.
+- `assets/maille.js` (bundled copy of the engine) and `assets/fonts/` (its default font). Keep both next to the film page. Fetch the latest with `curl -o maille.js https://maille-pi.vercel.app/maille.js` when the network allows, otherwise use the bundled one.
 - Node 18+, Playwright with Chromium (`npm i -D playwright && npx playwright install chromium`), and ffmpeg.
 - `templates/film.html`: a page that plays a timeline of shots and exposes `seek(t)`.
 - `scripts/render.mjs`: captures every frame of that page and pipes it to ffmpeg.
@@ -60,8 +60,7 @@ A still photo should feel filmed, not filtered. Give it light motion with `anim`
 Copy `templates/film.html` next to `maille.js` and edit the `SHOTS` array. Each shot has a start and end time, a scene config and an optional title. The template already handles:
 
 - crossfades between shots with `presence` (cells dissolve in and out, which looks native to ASCII, unlike an opacity fade),
-- room for type with `cutout` (a band of the frame where nothing is drawn),
-- titles set in the same monospaced font, aligned to the character grid,
+- titles set in the same monospaced font, whose letters resolve out of random glyphs,
 - a fixed `seed` per shot so every render is identical.
 
 Rules that keep it looking intentional:
@@ -73,7 +72,7 @@ Rules that keep it looking intentional:
 
 ### 5. Preview, then render
 
-Open the page in a browser to check timing (`?t=12.5` jumps to a time, space pauses). When it is right, render:
+Preview the page through a local server (`python3 -m http.server` or `npx serve .` in its folder, then open it in a browser), not as a file: browsers block photos on `file://` pages. `?t=12.5` jumps to a time, space pauses. To leave room for type, add `cutout: [x0, x1, fade]` to a shot's config (a vertical band where nothing is drawn). When it is right, render:
 
 ```bash
 node scripts/render.mjs film.html --fps 30 --out film.mp4

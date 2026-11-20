@@ -200,8 +200,24 @@
     return hw;
   }
 
+  // Values that arrive from configs (embeds, URLs) are kept in a range the engine can draw,
+  // so a typo never stops the animation or hangs the page
+  const num = (v, d, lo, hi) => { const n = +v; return Number.isFinite(n) ? clamp(n, lo, hi) : d; };
+  function sane(o) {
+    o.width = num(o.width, 300, 1, 16384); o.height = num(o.height, 150, 1, 16384);
+    o.cols = num(o.cols, 56, 4, 600); o.cellAspect = num(o.cellAspect, 1.5, 0.5, 4);
+    o.count = Math.round(num(o.count, 4, 0, 60)); o.koiPads = num(o.koiPads, 6, 0, 30);
+    o.agBirds = num(o.agBirds, 5, 0, 200); o.agFireflies = num(o.agFireflies, 22, 0, 200);
+    o.size = num(o.size, 1, 0.05, 6); o.spread = num(o.spread, 35, 0, 360); o.heading = num(o.heading, -90, -720, 720);
+    o.sides = num(o.sides, 0, 0, 0.45); o.presence = num(o.presence, 1, 0, 1); o.seed = num(o.seed, 7, -1e9, 1e9);
+    if (!Array.isArray(o.accents) || !o.accents.length) o.accents = DEFAULTS.accents;
+    if (o.varieties != null && !Array.isArray(o.varieties)) o.varieties = null;
+    if (o.anim != null && typeof o.anim !== 'object') o.anim = null;
+    if (typeof o.ramp !== 'string' || !o.ramp) o.ramp = DEFAULTS.ramp;
+    return o;
+  }
   function create(options) {
-    const o = Object.assign({}, DEFAULTS, options || {});
+    const o = sane(Object.assign({}, DEFAULTS, options || {}));
     let cw, ch, cols, rows;
     // Cell buffers written by scenes, read by draw()
     let kind, chrO, shade, dim, TR, TG, TB, glow, GR, GG, GB, dash;
@@ -533,7 +549,7 @@ const KOI_TINTS = {
       function wanderTo(c, U) {
         const p = c.path, st = p.step, Lb = c.Lb;
         while (p.len < U + st * 2) {
-          const n = p.x.length - 1, x = p.x[n], y = p.y[n];
+          const j = p.x.length - 1, n = p.base + j, x = p.x[j], y = p.y[j];
           // head for a wandering target inside the pond, with a little noise on top
           const seg = Math.floor((n * st) / (Lb * 5));
           let tx, ty, lo = 0, hi = o.width;
@@ -604,9 +620,14 @@ const KOI_TINTS = {
           p.x.push(x + Math.cos(p.th) * st); p.y.push(y + Math.sin(p.th) * st);
           p.len += st;
         }
+        // drop the path far behind the tail and its wake, so a pond left open for hours keeps a small memory
+        if (p.x.length > 4096) {
+          const drop = Math.floor((U - Lb * 3 - cw * 60) / st) - p.base;
+          if (drop > 0 && drop < p.x.length - 2) { p.x.splice(0, drop); p.y.splice(0, drop); p.base += drop; }
+        }
       }
       function wanderAt(c, u, w) {
-        const p = c.path, f = clamp(u, 0, p.len) / p.step, i = Math.min(Math.floor(f), p.x.length - 2), t = f - i;
+        const p = c.path, f = Math.max(0, clamp(u, 0, p.len) / p.step - p.base), i = Math.min(Math.floor(f), p.x.length - 2), t = f - i;
         w[0] = p.x[i] + (p.x[i + 1] - p.x[i]) * t; w[1] = p.y[i] + (p.y[i + 1] - p.y[i]) * t;
         const i0 = Math.max(0, i - 2), i1 = Math.min(p.x.length - 1, i + 3), tx = p.x[i1] - p.x[i0], ty = p.y[i1] - p.y[i0], l = Math.hypot(tx, ty) || 1;
         w[2] = tx / l; w[3] = ty / l;
@@ -692,7 +713,7 @@ const KOI_TINTS = {
               hy = per > 1 ? 0.1 + 0.8 * (k / (per - 1)) : 0.5;
               lane = (0.8 / Math.max(1, per - 1)) * 0.5;
             }
-            c.path = { hx, hy, side, lane, k: Math.floor(i / 2), x: [o.width * hx], y: [o.height * hy], th: P.wander ? rr() * TAU : ((o.heading + (rr() * 2 - 1) * o.spread) * Math.PI) / 180, step: Math.max(2, Lb / 40), len: 0, seed: ihash(o.seed, i, 778) % 9973 };
+            c.path = { hx, hy, side, lane, k: Math.floor(i / 2), x: [o.width * hx], y: [o.height * hy], th: P.wander ? rr() * TAU : ((o.heading + (rr() * 2 - 1) * o.spread) * Math.PI) / 180, step: Math.max(2, Lb / 40), len: 0, base: 0, seed: ihash(o.seed, i, 778) % 9973 };
             c.offset = Lb * 1.4;
           }
           list.push(c);
@@ -1385,11 +1406,11 @@ const KOI_TINTS = {
       function animate(src, iw, ih, t) {
         const W = Math.min(iw, 720), H = Math.max(1, Math.round(ih * W / iw)), a = o.anim, k = o.animAmount;
         if (!fxc) { fxc = document.createElement('canvas'); pc = document.createElement('canvas'); }
-        if (fxc.width !== W || fxc.height !== H) { fxc.width = W; fxc.height = H; fxg = fxc.getContext('2d'); }
+        if (!fxg || fxc.width !== W || fxc.height !== H) { fxc.width = W; fxc.height = H; fxg = fxc.getContext('2d'); }
         fxg.setTransform(1, 0, 0, 1, 0, 0);
         fxg.drawImage(src, 0, 0, W, H);
         const STRIP = 2, sy = ih / H;
-        (a.wind || []).forEach((w, wi) => {
+        (Array.isArray(a.wind) ? a.wind : []).forEach((w, wi) => {
           const x = Math.round(w.x0 * W), ww = Math.round((w.x1 - w.x0) * W), y0 = Math.round(w.y0 * H), y1 = Math.round(w.y1 * H);
           for (let y = y0; y < y1; y += STRIP) {
             let d = w.flat ? 1 : (y - y0) / Math.max(1, y1 - y0); if (w.up && !w.flat) d = 1 - d;
@@ -1397,7 +1418,7 @@ const KOI_TINTS = {
             fxg.drawImage(src, x * iw / W, y * sy, ww * iw / W, STRIP * sy, x + dx, y, ww, STRIP);
           }
         });
-        (a.parts || []).forEach((p, i) => {
+        (Array.isArray(a.parts) ? a.parts : []).forEach((p, i) => {
           const cx = p.x * W, cy = p.y * H, rx = p.rx * W, ry = p.ry * H, A = p.amp * k, f = p.f || 1;
           let dx = 0, dy = 0, rot = 0, sy2 = 1, ox = cx, oy = cy;
           if (p.kind === 'bob') { dy = A * H * wave(t, f, i); rot = A * 1.2 * wave(t, f * 0.71, i + 1); oy = cy + ry * 0.6; }
@@ -1405,7 +1426,8 @@ const KOI_TINTS = {
           else if (p.kind === 'flick') { rot = A * Math.pow(Math.max(0, Math.sin(t * f + i * 2.3)), 12) * Math.sin(t * 22); }
           else if (p.kind === 'sway') { rot = A * wave(t, f, i * 1.7); oy = cy + ry * 0.9; }
           const bw = Math.ceil(rx * 2.4), bh = Math.ceil(ry * 2.4), bx = cx - bw / 2, by = cy - bh / 2;
-          if (pc.width !== bw || pc.height !== bh) { pc.width = bw; pc.height = bh; pg = pc.getContext('2d'); }
+          if (bw < 1 || bh < 1 || rx <= 0 || ry <= 0) return;
+          if (!pg || pc.width !== bw || pc.height !== bh) { pc.width = bw; pc.height = bh; pg = pc.getContext('2d'); }
           else pg.clearRect(0, 0, bw, bh);
           pg.globalCompositeOperation = 'source-over';
           pg.setTransform(1, 0, 0, 1, -bx, -by);
@@ -1740,7 +1762,14 @@ const KOI_TINTS = {
       const m = /^#([0-9a-f]{6})$/i.exec(str);
       if (m) { const n = parseInt(m[1], 16); out = [(n >> 16) & 255, (n >> 8) & 255, n & 255, 1]; }
       else {
-        const k = /rgba?\(([^)]+)\)/.exec(str);
+        // any other CSS colour (#fff, names, hsl…): let a 1×1 canvas resolve it once
+        let q = String(str);
+        if (typeof document !== 'undefined' && !/^rgba?\(/.test(q)) {
+          try { const g = (parseColor.g = parseColor.g || document.createElement('canvas').getContext('2d')); g.fillStyle = '#000'; g.fillStyle = q; q = g.fillStyle; } catch (e) { /* keep black */ }
+          const h = /^#([0-9a-f]{6})$/i.exec(q);
+          if (h) { const n = parseInt(h[1], 16); q = `rgb(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255})`; }
+        }
+        const k = /rgba?\(([^)]+)\)/.exec(q);
         if (k) { const p = k[1].split(',').map(parseFloat); out = [p[0], p[1], p[2], p.length > 3 ? p[3] : 1]; }
       }
       colorCache.set(str, out);
@@ -1912,7 +1941,7 @@ const KOI_TINTS = {
 
     const REBUILD = ['scene', 'seed', 'count', 'species', 'size', 'speed', 'width', 'height', 'cols', 'cellAspect', 'spinePoints', 'source', 'text', 'textFont', 'koiPads', 'sides', 'varieties'];
     function set(p) {
-      Object.assign(o, p);
+      sane(Object.assign(o, p));
       if ('width' in p || 'height' in p || 'cols' in p || 'cellAspect' in p) layout();
       if ('scene' in p) useScene();
       else if (REBUILD.some((k) => k in p)) scene.build();
@@ -2049,7 +2078,16 @@ const KOI_TINTS = {
   function ensureFont(font) {
     if (typeof document === 'undefined') return Promise.resolve();
     const fam = String(font || '').split(',')[0].trim().replace(/"/g, '');
-    const q = FONT_FAMILIES[fam];
+    // The default font ships next to maille.js, so an embed makes no request to a third party
+    if (fam === 'JetBrains Mono' && !requested.has(fam) && typeof FontFace !== 'undefined') {
+      requested.add(fam);
+      try {
+        const ff = new FontFace('JetBrains Mono', `url(${new URL('fonts/jetbrains-mono-400.woff2', BASE).href}) format("woff2")`, { weight: '400', display: 'swap' });
+        document.fonts.add(ff);
+        return ff.load().catch(() => {});
+      } catch (e) { /* fall back to the system monospace */ }
+    }
+    const q = fam === 'JetBrains Mono' ? null : FONT_FAMILIES[fam];
     if (q && !requested.has(q)) {
       requested.add(q);
       const l = document.createElement('link');
@@ -2069,7 +2107,7 @@ const KOI_TINTS = {
   if (typeof window === 'undefined' || !window.customElements || customElements.get('maille-scene')) return;
 
   class MailleScene extends HTMLElement {
-    static get observedAttributes() { return ['config', 'preset', 'speed', 'paused', 'motion']; }
+    static get observedAttributes() { return ['config', 'preset', 'speed', 'paused', 'motion', 'dpr']; }
     constructor() {
       super();
       const sh = this.attachShadow({ mode: 'open' });
@@ -2089,6 +2127,7 @@ const KOI_TINTS = {
       this._onVis = () => this._loop();
       document.addEventListener('visibilitychange', this._onVis);
       this._reduced = matchMedia('(prefers-reduced-motion: reduce)');
+      this._reduced.addEventListener('change', this._onVis);
       this._fit();
       this._loop();
     }
@@ -2096,8 +2135,17 @@ const KOI_TINTS = {
       cancelAnimationFrame(this._raf); this._raf = 0;
       this._ro && this._ro.disconnect(); this._io && this._io.disconnect();
       document.removeEventListener('visibilitychange', this._onVis);
+      this._reduced && this._reduced.removeEventListener('change', this._onVis);
     }
-    attributeChangedCallback() { if (this.isConnected) { this._apply(); this._loop(); } }
+    attributeChangedCallback(name) {
+      if (!this.isConnected) return;
+      // playback attributes only touch the loop; a new config or preset attribute wins over earlier JS changes
+      if (name === 'paused' || name === 'motion') { this._loop(); return; }
+      if (name === 'speed') { this._speed(); this._loop(); return; }
+      if (name === 'dpr') { this._fit(); return; }
+      this._override = null; this._apply(); this._loop();
+    }
+    _speed() { const v = parseFloat(this.getAttribute('speed')); if (this._cfg) this._cfg.speed = Number.isFinite(v) ? v : (Number.isFinite(+this._cfg.speed) ? this._cfg.speed : 1); }
 
     // --- public API ---
     get config() { return clone(this._cfg); }
@@ -2124,8 +2172,8 @@ const KOI_TINTS = {
     }
     _apply() {
       this._cfg = resolve(this._override || this._attrConfig());
-      const sp = this.getAttribute('speed');
-      if (sp != null && sp !== '') this._cfg.speed = parseFloat(sp);
+      if (!Number.isFinite(+this._cfg.speed)) this._cfg.speed = 1;
+      if (this.getAttribute('speed') != null && this.getAttribute('speed') !== '') this._speed();
       const opts = toEngine(this._cfg);
       opts.cols = this._effCols();
       if (this._source) opts.source = this._source;
@@ -2144,13 +2192,22 @@ const KOI_TINTS = {
           }, (e) => { console.warn(e.message); if (this._pending === want) { this._pending = ''; this._draw(); } });
         }
       }
-      if (!this._engine) this._engine = AF.create(Object.assign({ width: Math.max(2, this._cv.width), height: Math.max(2, this._cv.height) }, opts));
-      else this._engine.set(opts);
-      ensureFont(this._cfg.font).then(() => { this._engine.refresh(); this._draw(); });
+      // Send only what changed: a live set() must not rebuild the whole scene
+      const sig = (v) => (v && typeof v === 'object' ? (v instanceof Element ? v : JSON.stringify(v)) : v);
+      if (!this._engine) {
+        this._engine = AF.create(Object.assign({ width: Math.max(2, this._cv.width), height: Math.max(2, this._cv.height) }, opts));
+        this._sent = {}; for (const k in opts) this._sent[k] = sig(opts[k]);
+      } else {
+        const diff = {};
+        for (const k in opts) { const v = sig(opts[k]); if (this._sent[k] !== v) { diff[k] = opts[k]; this._sent[k] = v; } }
+        if (Object.keys(diff).length) this._engine.set(diff);
+      }
+      if (this._font !== this._cfg.font) { this._font = this._cfg.font; ensureFont(this._cfg.font).then(() => { this._engine.refresh(); this._draw(); }); }
       this._draw();
     }
     _fit() {
-      const r = this.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+      // dpr="1" caps the resolution: for full-page backgrounds, where sharpness matters less than cost
+      const cap = parseFloat(this.getAttribute('dpr')), r = this.getBoundingClientRect(), dpr = Math.min(Number.isFinite(cap) && cap > 0 ? cap : 2, window.devicePixelRatio || 1);
       const w = Math.max(2, Math.round(r.width * dpr)), h = Math.max(2, Math.round(r.height * dpr));
       if (this._cv.width !== w || this._cv.height !== h) {
         this._cv.width = w; this._cv.height = h;
@@ -2158,8 +2215,8 @@ const KOI_TINTS = {
         this._draw();
       }
     }
-    // Keep cells at least ~6 device px wide so small embeds stay legible
-    _effCols() { const c = this._cfg ? this._cfg.cols : 200; return Math.max(16, Math.min(c, Math.floor(Math.max(this._cv.width, 96) / 6))); }
+    // Keep cells at least 3 CSS px wide so small embeds stay legible (the same on every screen density)
+    _effCols() { const c = this._cfg ? this._cfg.cols : 200, w = this.getBoundingClientRect().width || this._cv.width; return Math.max(16, Math.min(c, Math.floor(Math.max(w, 48) / 3))); }
     _animating() {
       const reduced = this._reduced && this._reduced.matches && this.getAttribute('motion') !== 'always';
       return this.isConnected && this._visible && !document.hidden && !this.hasAttribute('paused') && !reduced;
@@ -2168,10 +2225,10 @@ const KOI_TINTS = {
     _tick(now) {
       this._raf = 0;
       if (!this._animating()) return;
+      this._raf = requestAnimationFrame(this._tick); // armed first: one bad frame never stops the scene
       this._t += Math.min(0.05, (now - this._last) / 1000) * (this._cfg ? this._cfg.speed : 1);
       this._last = now;
-      this._draw();
-      this._raf = requestAnimationFrame(this._tick);
+      try { this._draw(); } catch (e) { if (!this._err) console.error('maille-scene:', this._err = e); }
     }
     _draw() {
       if (this._pending) { this._ctx.clearRect(0, 0, this._cv.width, this._cv.height); return; }

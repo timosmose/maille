@@ -27,6 +27,8 @@
  *   random glyphs when the title appears, and dissolve back when it leaves.
  *
  * URL: ?w=1920&h=1080 to change the size, ?t=12.5 to jump to a time. Space pauses.
+ * Preview through a local server (python3 -m http.server, npx serve .), not by opening the file:
+ * browsers block photos loaded from file:// pages.
  */
 const q = new URLSearchParams(location.search);
 const W = +q.get('w') || 1080, H = +q.get('h') || 1920;
@@ -57,7 +59,8 @@ const layers = SHOTS.map((s) => {
 
 async function setup() {
   await Promise.all(layers.map(async (L) => {
-    const src = L.cfg.scene === 'image' && L.cfg.src ? await Maille.loadSrc(L.cfg.src).catch((e) => { console.warn(e.message); return null; }) : null;
+    // a missing photo stops the render with a clear message instead of baking a placeholder into the film
+    const src = L.cfg.scene === 'image' && L.cfg.src ? await Maille.loadSrc(L.cfg.src).catch((e) => { throw new Error(`Shot ${SHOTS.indexOf(L.s) + 1}: ${e.message}`); }) : null;
     await Maille.ensureFont(L.cfg.font);
     L.engine = Maille.create(Object.assign({ width: W, height: H }, Maille.toEngine(L.cfg, src)));
     L.engine.refresh();

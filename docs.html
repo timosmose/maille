@@ -63,7 +63,7 @@
 
   <section>
     <h1>Animated ASCII scenes for any website</h1>
-    <p class="lead">Start from a scene or your own image or text, copy the embed, paste it where you build. One script, no dependencies.</p>
+    <p class="lead">Start from a scene or your own image or text, copy the embed, paste it where you build. One script, no dependencies, nothing loaded from third parties.</p>
     <maille-scene preset="golden-hour"></maille-scene>
   </section>
 
@@ -92,6 +92,7 @@
         <tr><td><code>speed</code></td><td>number</td><td>Playback speed, 1 is normal.</td></tr>
         <tr><td><code>paused</code></td><td>present or absent</td><td>Holds the current frame.</td></tr>
         <tr><td><code>motion</code></td><td><code>always</code></td><td>Keeps animating even when the visitor prefers reduced motion.</td></tr>
+        <tr><td><code>dpr</code></td><td>number</td><td>Caps the pixel density, e.g. <code>1</code> for a full-page background where cost matters more than sharpness.</td></tr>
       </tbody>
     </table></div>
   </section>
@@ -126,14 +127,23 @@ scene.set({ agDaylight: 1, agBirds: 9 });   // change any setting live
 scene.pause(); scene.seek(12.5);             // exact frame at 12.5 s
 scene.play();
 scene.config;                                // full resolved settings
+scene.presence = 0.5;                        // share of cells drawn, for dissolves
+scene.source = videoOrCanvas;                // image scene: draw any image, video or canvas
 
 // Without the element
 const engine = Maille.create({ scene: 'waves', width: 1920, height: 1080, cols: 160 });
 engine.render(canvas.getContext('2d'), 3.2);</code></pre>
   </section>
 </main>
-<script src="maille.js?v=978dd64b"></script>
+<script src="maille.js?v=7336825d"></script>
 <script>
+  // Preset previews hold a still and play on hover, so the page does not run a dozen scenes at once
+  document.querySelectorAll('.grid figure').forEach((f) => {
+    const sc = f.querySelector('maille-scene');
+    sc.setAttribute('paused', ''); requestAnimationFrame(() => sc.seek && sc.seek(4));
+    f.addEventListener('pointerenter', () => sc.removeAttribute('paused'));
+    f.addEventListener('pointerleave', () => sc.setAttribute('paused', ''));
+  });
   // Show the real address in code samples
   if (/^https?:/.test(location.protocol)) document.querySelectorAll('pre code').forEach((c) => { c.textContent = c.textContent.replace(/https:\/\/SITE/g, location.origin); });
 </script>

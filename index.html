@@ -178,7 +178,7 @@
   <div class="well"><div class="frame" id="frame"><canvas id="cv" aria-label="Animated ASCII scene"></canvas></div></div>
 
   <div class="bar" id="bar">
-    <div class="strip" id="strip" aria-label="Scenes"></div>
+    <div class="strip" id="strip" role="group" aria-label="Scenes"></div>
     <div class="actions">
       <label class="btn" for="file">Upload image<input type="file" id="file" accept="image/*"></label>
       <button class="btn" id="useText">Write text</button>
@@ -205,7 +205,7 @@
 </div>
 <div class="toast" id="toast" role="status"></div>
 
-<script src="maille.js?v=978dd64b"></script>
+<script src="maille.js?v=7336825d"></script>
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
@@ -266,7 +266,7 @@
   // In Full the stage is much bigger than the presets' own frames: keep cells around 7px wide and
   // the creatures at a size that reads, so every scene arrives well proportioned.
   const FULL_TUNE = { koi: { size: 0.62, count: 8, koiPads: 6 }, sharks: { size: 0.75 }, mantas: { size: 0.8 }, gulls: {} };
-  const stageCols = () => { const w = innerWidth - (innerWidth > 860 ? 320 : 0); return Math.max(80, Math.min(240, Math.round(w / 7 / 2) * 2)); }; // stage width beside the settings
+  const stageCols = () => { const w = innerWidth - (innerWidth > 860 ? 320 : 0); return Math.max(80, Math.min(300, Math.round(w / 5 / 2) * 2)); }; // stage width beside the settings: cells about 5px
   function fromPreset(key, format = 'Full') {
     const cfg = Object.assign(clone(AF.PRESETS[key].config), { format });
     if (format === 'Full' && PROCEDURAL.includes(cfg.scene || 'alpenglow')) {
@@ -284,6 +284,7 @@
   const appEl = $('app'), frameEl = $('frame'), cv = $('cv'), ctx = cv.getContext('2d');
   const engineOpts = () => AF.toEngine(S, source);
   const engine = AF.create(Object.assign({ width: 640, height: 360 }, engineOpts()));
+  let dirty = true;
   const lastSent = {};
   const sig = (v) => (v && typeof v === 'object' ? JSON.stringify(v) : v);
   for (const [k, v] of Object.entries(engineOpts())) lastSent[k] = sig(v);
@@ -292,6 +293,7 @@
     const o = engineOpts(), diff = {};
     for (const k in o) { const sv = sig(o[k]); if (lastSent[k] !== sv) { diff[k] = o[k]; lastSent[k] = sv; } }
     if (Object.keys(diff).length) engine.set(diff);
+    dirty = true;
     save();
   }
   let saveT = 0;
@@ -306,9 +308,11 @@
   function fit() {
     const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
     const w = Math.max(2, Math.round(r.width * dpr)), h = Math.max(2, Math.round(r.height * dpr));
-    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; engine.set({ width: w, height: h }); }
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; engine.set({ width: w, height: h }); dirty = true; }
   }
-  new ResizeObserver(fit).observe(cv);
+  // during the drawer's slide the canvas just stretches; the scene is rebuilt once the size settles
+  let fitT = 0;
+  new ResizeObserver(() => { clearTimeout(fitT); fitT = setTimeout(fit, 140); }).observe(cv);
   new ResizeObserver(() => appEl.style.setProperty('--bar', $('bar').offsetHeight + 'px')).observe($('bar'));
 
   // ---------- control builders ----------
@@ -405,6 +409,7 @@
 
   // ---------- drawer ----------
   function openDrawer(on) {
+    if (!on && $('drawer').contains(document.activeElement)) $('edit').focus();
     $('drawer').classList.toggle('open', on);
     appEl.classList.toggle('editing', on);
     $('edit').setAttribute('aria-expanded', String(on));
@@ -423,14 +428,26 @@
       const cfg = AF.PRESETS[key].config, heavy = !cfg.scene || cfg.scene === 'alpenglow';
       // small tiles read better with a coarser grain
       sc.setAttribute('config', JSON.stringify(Object.assign({ cols: Math.min(cfg.cols || 200, heavy ? 64 : 44) }, key === 'type' ? { text: 'Aa' } : {})));
+      // tiles hold a still and only move while hovered, focused or selected: eight live scenes cost too much
+      sc.setAttribute('aria-hidden', 'true'); sc.setAttribute('paused', '');
       const name = document.createElement('span'); name.textContent = label;
       b.append(sc, name);
+      requestAnimationFrame(() => sc.seek && sc.seek(4));
+      const live = (on) => { if (on || b.dataset.key === from) sc.removeAttribute('paused'); else sc.setAttribute('paused', ''); };
+      b.addEventListener('pointerenter', () => live(true)); b.addEventListener('pointerleave', () => live(false));
+      b.addEventListener('focus', () => live(true)); b.addEventListener('blur', () => live(false));
       b.addEventListener('click', () => loadPreset(key));
       strip.appendChild(b);
     }
     syncStrip();
   }
-  function syncStrip() { for (const b of $('strip').children) b.setAttribute('aria-pressed', String(b.dataset.key === from)); }
+  function syncStrip() {
+    for (const b of $('strip').children) {
+      const on = b.dataset.key === from, sc = b.querySelector('maille-scene');
+      b.setAttribute('aria-pressed', String(on));
+      if (on) sc.removeAttribute('paused'); else if (!b.matches(':hover, :focus')) sc.setAttribute('paused', '');
+    }
+  }
   function setState(next, key) {
     S = AF.resolve(next); from = key || ''; source = null;
     applyFormat(); push(); buildUI(); syncStrip(); syncSrc();
@@ -448,17 +465,17 @@
     if (!file || !file.type.startsWith('image/')) { if (file) toast('Use an image file'); return; }
     const url = URL.createObjectURL(file), img = new Image();
     img.onload = () => {
-      const k = Math.min(1, 900 / Math.max(img.naturalWidth, img.naturalHeight));
+      const k = Math.min(1, 640 / Math.max(img.naturalWidth, img.naturalHeight)); // small enough to travel inside an embed
       const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      let data = c.toDataURL('image/webp', 0.82);
-      if (!data.startsWith('data:image/webp')) data = c.toDataURL('image/jpeg', 0.85);
+      let data = c.toDataURL('image/webp', 0.72);
+      if (!data.startsWith('data:image/webp')) data = c.toDataURL('image/jpeg', 0.75);
       URL.revokeObjectURL(url);
       const keep = S.scene === 'image' ? { color: S.color, invert: S.invert, threshold: S.threshold } : { threshold: 0.06 };
       setState(Object.assign({}, S, keep, { scene: 'image', src: data, anim: clone(AF.MOTION.photo), animAmount: 1, size: 1, cols: Math.max(S.cols, 140) }), '');
       openDrawer(true);
     };
-    img.onerror = () => toast('That image could not be read');
+    img.onerror = () => { URL.revokeObjectURL(url); toast('That image could not be read'); };
     img.src = url;
   }
   $('file').addEventListener('change', (e) => { loadImage(e.target.files[0]); e.target.value = ''; });
@@ -477,8 +494,8 @@
   let simT = 0, last = performance.now(), playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
   $('shuffle').addEventListener('click', () => { S.seed = (Math.random() * 99999) | 0; push(); });
   document.addEventListener('keydown', (e) => {
-    if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.code === 'Space' && document.activeElement.tagName !== 'BUTTON') { e.preventDefault(); playing = !playing; }
+    if (/^(INPUT|TEXTAREA|SELECT|BUTTON|SUMMARY|A|LABEL)$/.test(document.activeElement.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.code === 'Space') { e.preventDefault(); playing = !playing; dirty = true; }
     if (e.key === 'Escape') openDrawer(false);
     if (e.key === 'e') openDrawer(!$('drawer').classList.contains('open'));
   });
@@ -500,18 +517,22 @@
   let splash = 0;
   const at = (e) => { const r = frameEl.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; };
   frameEl.addEventListener('pointermove', (e) => { if (S.scene === 'koi') engine.set({ pointer: at(e) }); });
-  frameEl.addEventListener('pointerleave', () => engine.set({ pointer: null }));
+  frameEl.addEventListener('pointerleave', () => { engine.set({ pointer: null }); dirty = true; });
   frameEl.addEventListener('click', (e) => { if (S.scene === 'koi') engine.set({ pointer: at(e), splash: ++splash }); });
+  // Draw only when something moves or changed: paused, speed 0 or reduced motion cost nothing (see tick)
   function tick(now) {
+    requestAnimationFrame(tick); // armed first: one bad frame never stops the preview
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    if (playing) simT += dt * S.speed;
-    engine.render(ctx, simT);
-    requestAnimationFrame(tick);
+    const moving = playing && S.speed > 0;
+    if (moving) simT += dt * S.speed;
+    if (!moving && !dirty) return;
+    dirty = false;
+    try { engine.render(ctx, simT); } catch (e) { if (!tick.err) console.error('Maille:', tick.err = e); }
   }
 
   // ---------- output ----------
   const toastEl = $('toast'); let toastT = 0;
-  function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 1800); }
+  function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), msg.length > 40 ? 4500 : 1800); }
   function download(name, blob) {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 3000);
@@ -527,9 +548,10 @@
     const btn = $('rec'); if (btn.disabled) return;
     const type = ['video/mp4;codecs=avc1', 'video/webm;codecs=vp9', 'video/webm'].find((t) => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
     if (!type) { toast('This browser cannot record video'); return; }
-    const secs = 8, rec = new MediaRecorder(cv.captureStream(60), { mimeType: type, videoBitsPerSecond: 24e6 });
+    const secs = 8, stream = cv.captureStream(60), rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 24e6 });
     const chunks = []; rec.ondataavailable = (e) => chunks.push(e.data);
-    rec.onstop = () => { btn.disabled = false; btn.textContent = 'Record video'; download(fileName(type.includes('mp4') ? 'mp4' : 'webm'), new Blob(chunks, { type: type.split(';')[0] })); toast('Video saved'); };
+    rec.onerror = () => { stream.getTracks().forEach((t) => t.stop()); btn.disabled = false; btn.textContent = 'Record video'; toast('Recording failed'); };
+    rec.onstop = () => { stream.getTracks().forEach((t) => t.stop()); btn.disabled = false; btn.textContent = 'Record video'; download(fileName(type.includes('mp4') ? 'mp4' : 'webm'), new Blob(chunks, { type: type.split(';')[0] })); toast('Video saved'); };
     playing = true; btn.disabled = true; rec.start();
     let left = secs; btn.textContent = `Recording ${left} s`;
     const iv = setInterval(() => { left--; if (left > 0) btn.textContent = `Recording ${left} s`; else { clearInterval(iv); rec.stop(); } }, 1000);
@@ -538,12 +560,13 @@
   function embedCode() {
     const cfg = AF.compact(S), f = FORMATS[S.format];
     delete cfg.format;
-    const json = JSON.stringify(cfg).replace(/'/g, '&#39;');
+    const json = JSON.stringify(cfg).replace(/&/g, '&amp;').replace(/'/g, '&#39;');
     const style = f ? `display:block;width:100%;aspect-ratio:${f[0]}/${f[1]}` : 'display:block;width:100%;height:100%;min-height:320px';
     return `<script src="${SITE}/maille.js" defer><\/script>\n<maille-scene config='${json}' style="${style}"></maille-scene>`;
   }
   $('copyEmbed').addEventListener('click', () => {
-    navigator.clipboard.writeText(embedCode()).then(() => toast('Embed code copied'), () => toast('Copy was blocked by the browser'));
+    const code = embedCode(), long = code.length > 45000;
+    navigator.clipboard.writeText(code).then(() => toast(long ? 'Copied. With the photo inside it is long: some site builders cap embeds near 50,000 characters' : 'Embed code copied'), () => toast('Copy was blocked by the browser'));
   });
 
   window.maille = { engine, get state() { return S; }, seek(t) { playing = false; simT = t; engine.render(ctx, t); } };
@@ -551,7 +574,7 @@
   applyFormat(); buildUI(); buildStrip(); fit(); syncSrc();
   // settings open from the start on wide screens; on phones they wait for Edit
   if (matchMedia('(min-width: 861px)').matches) openDrawer(true);
-  if (document.fonts) document.fonts.ready.then(() => engine.refresh());
+  if (document.fonts) document.fonts.ready.then(() => { engine.refresh(); dirty = true; });
   requestAnimationFrame(tick);
 })();
 </script>
