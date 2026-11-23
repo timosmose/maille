@@ -24,7 +24,7 @@ A config is a plain object. Anything left out takes its default. `Maille.resolve
 
 ## Creatures (`sharks`, `mantas`, `koi`, `birds`)
 
-`count`, `size`, `heading` (degrees, -90 swims up), `spread` (degrees of variation), `contour` (shaped outlines), `ambient` (caustics and particles). Sharks: `speciesSet` = `mix`, `grey`, `sand`, `hammer`. Koi: `koiPads`, `koiRipples`, `varieties` (kohaku, tancho, sanke, showa, utsuri, asagi, shusui, chagoi, kujaku, butterfly, silver, gold), `pointer` and `splash` for interaction. `sides` (0.05 to 0.45) keeps creatures in two side bands, leaving the centre clear.
+`count`, `size`, `heading` (degrees, -90 swims up), `spread` (degrees of variation), `contour` (shaped outlines), `ambient` (caustics and particles). Sharks: `speciesSet` = `mix`, `grey`, `sand`, `hammer`. Koi: `koiPads`, `koiRipples`, `varieties` (kohaku, tancho, sanke, showa, utsuri, asagi, shusui, chagoi, kujaku, butterfly, silver, gold), `pointer` and `splash` for interaction. Sharks and mantas: `school` (bait fish that flock, flee the creatures and the pointer; 0 to 2, 0 = none), `pointer` and `splash` too. `sides` (0.05 to 0.45) keeps creatures in two side bands, leaving the centre clear.
 
 ## Waves and landscape
 

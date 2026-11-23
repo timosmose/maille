@@ -225,7 +225,7 @@
 </div>
 <div class="toast" id="toast" role="status"></div>
 
-<script src="maille.js?v=98792ca8"></script>
+<script src="maille.js?v=ac24e8d4"></script>
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
@@ -250,12 +250,13 @@
   const size = R('size', 'Size', 0.4, 1.8, 0.01, xx), dir = R('heading', 'Direction', -180, 180, 5, deg), spread = R('spread', 'Spread', 0, 90, 1, deg);
   const sides = R('sides', 'Clear centre', 0, 0.45, 0.01, (v) => (v > 0 ? pct(1 - 2 * v) : 'Off'));
   const ambient = R('ambient', 'Light in the water', 0, 2, 0.05, xx);
+  const school = R('school', 'Bait fish', 0, 2, 0.05, xx);
   const motion = R('animAmount', 'Motion', 0, 2, 0.05, xx);
   // Per scene: [main controls, under More]
   const SCENE_UI = {
     sharks: [[{ k: 'speciesSet', label: 'Species', type: 'seg', options: [['mix', 'Mix'], ['grey', 'Grey'], ['sand', 'Sand'], ['hammer', 'Hammer']] }, count('Sharks'), size, dir],
-      [spread, sides, ambient, T('trails', 'Wakes'), T('contour', 'Outlines')]],
-    mantas: [[count('Mantas'), size, dir], [spread, sides, ambient, T('trails', 'Wakes'), T('contour', 'Outlines')]],
+      [school, spread, sides, ambient, T('trails', 'Wakes'), T('contour', 'Outlines')]],
+    mantas: [[count('Mantas'), size, dir], [school, spread, sides, ambient, T('trails', 'Wakes'), T('contour', 'Outlines')]],
     koi: [[count('Koi', 16), size, R('koiPads', 'Lily pads', 0, 14, 1, int)],
       [{ k: 'varieties', label: 'Varieties', type: 'chips' }, R('koiRipples', 'Ripples', 0, 2, 0.05, xx), sides, spread, ambient, T('contour', 'Outlines')]],
     birds: [[count('Birds', 20), size, dir], [spread, sides, T('trails', 'Trails'), T('contour', 'Outlines')]],
@@ -541,9 +542,11 @@
   }, { passive: false });
   let splash = 0;
   const at = (e) => { const r = frameEl.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; };
-  frameEl.addEventListener('pointermove', (e) => { if (S.scene === 'koi') engine.set({ pointer: at(e) }); });
+  // Koi follow or flee the pointer, bait fish scatter from it; a click splashes
+  const INTERACTIVE = ['koi', 'sharks', 'mantas'];
+  frameEl.addEventListener('pointermove', (e) => { if (INTERACTIVE.includes(S.scene)) engine.set({ pointer: at(e) }); });
   frameEl.addEventListener('pointerleave', () => { engine.set({ pointer: null }); dirty = true; });
-  frameEl.addEventListener('click', (e) => { if (S.scene === 'koi') engine.set({ pointer: at(e), splash: ++splash }); });
+  frameEl.addEventListener('click', (e) => { if (INTERACTIVE.includes(S.scene)) engine.set({ pointer: at(e), splash: ++splash }); });
   // Draw only when something moves or changed: paused, speed 0 or reduced motion cost nothing (see tick)
   function tick(now) {
     requestAnimationFrame(tick); // armed first: one bad frame never stops the preview
@@ -588,7 +591,8 @@
     const json = JSON.stringify(cfg).replace(/&/g, '&amp;').replace(/'/g, '&#39;');
     const ar = f ? `${f[0]}/${f[1]}` : String(+(cv.width / cv.height).toFixed(3));
     const style = `display:block;width:100%;aspect-ratio:${ar}`;
-    return `<script src="${SITE}/maille.js" defer><\/script>\n<maille-scene config='${json}' style="${style}"></maille-scene>`;
+    const touch = INTERACTIVE.includes(S.scene) ? ' interactive' : '';
+    return `<script src="${SITE}/maille.js" defer><\/script>\n<maille-scene config='${json}'${touch} style="${style}"></maille-scene>`;
   }
   $('copyEmbed').addEventListener('click', () => {
     const code = embedCode(), long = code.length > 45000;

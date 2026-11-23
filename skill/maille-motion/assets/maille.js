@@ -91,10 +91,11 @@
     contourChars: ".,'`-_/\\|():;",
     ambient: 1,          // creatures in water: caustics + drifting particles
     koiPads: 6,          // koi: lily pads floating on top
+    school: 1,           // sharks, mantas: bait fish that school, flee the creatures and the pointer (0 = none, 2 = twice as many)
     koiRipples: 1,       // koi: rings when a fish kisses the surface
     varieties: null,     // koi: list of varieties to use in turn (kohaku, tancho, sanke, showa, utsuri, asagi, shusui, chagoi, kujaku, butterfly, silver, gold); null = the scene's mix
-    pointer: null,       // [x, y] as fractions of the scene, or null: koi startle away from a moving pointer and come up to one that rests; it rings the pond surface
-    splash: 0,           // bump this number to drop a splash at the pointer (a click)
+    pointer: null,       // [x, y] as fractions of the scene, or null: koi startle away from a moving pointer and come up to one that rests; it rings the pond surface; bait fish scatter from it
+    splash: 0,           // bump this number to drop a splash at the pointer (a click): a ring on the water, nearby fish burst out
     presence: 1,         // 0..1: share of cells drawn, a fixed random per cell, so a scene can dissolve in or out (crossfades)
     cutout: null,        // [x0, x1, fade] as fractions of the width: nothing is drawn between x0 and x1, and cells dissolve over `fade` on each side
     sides: 0,            // creatures: 0 = whole scene; 0.05-0.45 = fraction of the width kept on each side. Koi live in the two bands and now and then cross; swimmers and birds travel both ways
@@ -206,7 +207,7 @@
   function sane(o) {
     o.width = num(o.width, 300, 1, 16384); o.height = num(o.height, 150, 1, 16384);
     o.cols = num(o.cols, 56, 4, 600); o.cellAspect = num(o.cellAspect, 1.5, 0.5, 4);
-    o.count = Math.round(num(o.count, 4, 0, 60)); o.koiPads = num(o.koiPads, 6, 0, 30);
+    o.count = Math.round(num(o.count, 4, 0, 60)); o.koiPads = num(o.koiPads, 6, 0, 30); o.school = num(o.school, 1, 0, 3);
     o.agBirds = num(o.agBirds, 5, 0, 200); o.agFireflies = num(o.agFireflies, 22, 0, 200);
     o.size = num(o.size, 1, 0.05, 6); o.spread = num(o.spread, 35, 0, 360); o.heading = num(o.heading, -90, -720, 720);
     o.sides = num(o.sides, 0, 0, 0.45); o.presence = num(o.presence, 1, 0, 1); o.seed = num(o.seed, 7, -1e9, 1e9);
@@ -532,8 +533,8 @@ const KOI_TINTS = {
       },
     };
     const CREATURE_SCENES = {
-      sharks: { water: true, glowTint: TEAL, species: null },
-      mantas: { water: true, glowTint: [0.28, 0.62, 0.98], species: ['manta'], bg: ['#03060c', '#05101c', '#02040a'], grid: '#0b1119' },
+      sharks: { water: true, school: true, glowTint: TEAL, species: null },
+      mantas: { water: true, school: true, glowTint: [0.28, 0.62, 0.98], species: ['manta'], bg: ['#03060c', '#05101c', '#02040a'], grid: '#0b1119' },
       koi: { water: true, pond: true, trails: false, glowTint: [0.3, 0.7, 0.55], species: ['koi'], varieties: ['kohaku', 'showa', 'asagi', 'sanke', 'tancho', 'utsuri', 'kujaku', 'shusui', 'kohaku', 'chagoi', 'butterfly', 'silver'], bg: ['#030705', '#06110d', '#020504'], grid: '#0b130f' },
       // seen from above, over a dark sea: the glitter of the water drifts below, shadows fall far down on it
       birds: { water: true, glowTint: [0.36, 0.66, 0.86], species: ['gull', 'gull', 'stork', 'gull'], trails: false, bg: ['#04101a', '#071a28', '#030b13'], grid: '#0a1822' },
@@ -600,7 +601,7 @@ const KOI_TINTS = {
             k -= turn * 2.2 * boltCurve(curT - c.bolt, BOLT_TURN) / Lb;
           }
           // the pointer: a moving one startles the fish away, a resting one draws them in
-          if (ptr) {
+          if (ptr && def.pond) {
             const age = curT - ptr.t, ex = ptr.x - x, ey = ptr.y - y, d = Math.hypot(ex, ey), turn = dx * ey - dy * ex >= 0 ? 1 : -1;
             if (age < 1.6 && d < Lb * 2.4) k -= turn * 1.6 * (1 - d / (Lb * 2.4)) / Lb;
             else if (age > 1.8 && age < 16 && d < Lb * 5 && d > Lb * 1.4 && !(c.bolt != null && curT - c.bolt < 4)) k += turn * 0.7 * Math.min(1, (age - 1.8) / 1.5) / Lb;
@@ -727,6 +728,7 @@ const KOI_TINTS = {
           list.push(c);
         }
         list.sort((a, b) => a.depth - b.depth);
+        schoolBuild();
         pads = [];
         if (def.pond) {
           // Pads gather in a few clusters toward the edges of the pond, big ones under small ones
@@ -1065,6 +1067,195 @@ const KOI_TINTS = {
         }
       }
 
+      /* Bait fish: small schools under the sharks and mantas. Each fish keeps its own cell (separation in
+       * cell units), lines up with its school and stays close to it; some schools travel in ribbons, some
+       * drift in loose clouds, some circle into a ball. They give the creatures' heads and flanks a wide
+       * berth, scatter to the side of the path they are on, and the fright passes from fish to fish, so a
+       * whole school turns even when only its edge saw the shark. A moving pointer scares them too, and a
+       * click throws them outward.
+       * The sim runs in fixed 30 Hz steps from t = 0 with seeded randomness, so the frame at t is the same
+       * live, in a seek or in a render; snapshots every two seconds make a seek back cheap. Units: cell widths. */
+      const FISH_KINDS = [
+        { cruise: 5.5, top: 11, align: 2.6, cohere: 0.8, swirl: 0, wobble: 0.5, size: [18, 30] },   // ribbon
+        { cruise: 3.6, top: 9, align: 0.6, cohere: 1.1, swirl: 0, wobble: 1.5, size: [9, 16] },      // cloud
+        { cruise: 4.4, top: 10, align: 1.1, cohere: 2, swirl: 1.6, wobble: 0.7, size: [22, 34] },  // ball
+      ];
+      const FSTEP = 1 / 30, FSNAP = 60, FISH_SILVER = [0.66, 0.8, 0.94], FISH_GLINT = [1.04, 1.08, 1.12];
+      let fN = 0, fX, fY, fVX, fVY, fAl, fTurn, fPh, fDepth, fKind, fGrp, fSpin, fStep = 0, fSnaps = new Map();
+      let fHead = new Int32Array(0), fNext = new Int32Array(0), fBC = 0, fBR = 0, fBS = 1;
+      const fFields = () => [fX, fY, fVX, fVY, fAl, fTurn, fPh];
+      function schoolBuild() {
+        fSnaps = new Map(); fStep = 0; fN = 0;
+        if (!def.school || !(o.school > 0)) return;
+        const Wu = cols, Hu = o.height / cw, A = o.cellAspect;
+        const want = Math.round(clamp(cols * rows * 0.026, 0, 400) * o.school);
+        const r = mulberry32(ihash(o.seed, 4401, 17));
+        const sw = o.sides > 0 ? clamp(o.sides, 0.05, 0.45) : 0;
+        const tmp = { x: [], y: [], vx: [], vy: [], d: [], k: [], g: [], s: [] };
+        for (let g = 0; tmp.x.length < want && g < 200; g++) {
+          const k = Math.floor(r() * FISH_KINDS.length), K = FISH_KINDS[k];
+          const n = Math.min(want - tmp.x.length, Math.round(K.size[0] + (K.size[1] - K.size[0]) * r()));
+          let cx = Wu * (0.08 + 0.84 * r());
+          if (sw) cx = g % 2 ? Wu * (1 - sw * (0.2 + 0.6 * r())) : Wu * sw * (0.2 + 0.6 * r());
+          const cy = Hu * (0.08 + 0.84 * r()), th = r() * TAU, spin = r() < 0.5 ? 1 : -1, rad = 1.1 * Math.sqrt(n);
+          for (let i = 0; i < n; i++) {
+            const a = r() * TAU, d = rad * Math.sqrt(r());
+            tmp.x.push(cx + Math.cos(a) * d); tmp.y.push(cy + Math.sin(a) * d * A * 0.8);
+            tmp.vx.push(Math.cos(th) * K.cruise); tmp.vy.push(Math.sin(th) * K.cruise);
+            tmp.d.push(0.35 + 0.65 * r()); tmp.k.push(k); tmp.g.push(g); tmp.s.push(spin);
+          }
+        }
+        fN = tmp.x.length;
+        fX = Float32Array.from(tmp.x); fY = Float32Array.from(tmp.y); fVX = Float32Array.from(tmp.vx); fVY = Float32Array.from(tmp.vy);
+        fAl = new Float32Array(fN); fTurn = new Float32Array(fN); fPh = new Float32Array(fN).map((_, i) => rnd3(i, o.seed, 4402) * TAU);
+        fDepth = Float32Array.from(tmp.d); fKind = Uint8Array.from(tmp.k); fGrp = Uint16Array.from(tmp.g); fSpin = Int8Array.from(tmp.s);
+        fNext = new Int32Array(fN);
+        fSnaps.set(0, fFields().map((a) => a.slice()));
+      }
+      function schoolSnap() {
+        fSnaps.set(fStep, fFields().map((a) => a.slice()));
+        if (fSnaps.size > 150) for (const k of fSnaps.keys()) if (k) { fSnaps.delete(k); break; }
+      }
+      function schoolRestore(target) {
+        let best = 0;
+        for (const k of fSnaps.keys()) if (k <= target && k > best) best = k;
+        const src = fSnaps.get(best);
+        if (!src) return;
+        fFields().forEach((a, i) => a.set(src[i]));
+        fStep = best;
+      }
+      // Something that scares fish: the nearest point on the front half of a creature
+      const thr = { x: 0, y: 0, hx: 0, hy: 0 };
+      function nearestThreat(c, x, y) {
+        const P = c.pts, n = c.n, half = n >> 1;
+        let best = 1e18, bi = 0;
+        for (let i = 0; i <= half; i += 2) { const dx = x - P[i * 2] / cw, dy = y - P[i * 2 + 1] / cw, d2 = dx * dx + dy * dy; if (d2 < best) { best = d2; bi = i; } }
+        thr.x = P[bi * 2] / cw; thr.y = P[bi * 2 + 1] / cw; thr.hx = -c.ux[0]; thr.hy = -c.uy[0];
+        return Math.sqrt(best);
+      }
+      function schoolStep(T) {
+        const dt = FSTEP, Wu = cols, Hu = o.height / cw, A = o.cellAspect;
+        // spatial hash, buckets the size of the neighbourhood
+        const R = Math.max(5, 3 * A), R2 = R * R;
+        fBS = R; fBC = Math.ceil(Wu / R) + 2; fBR = Math.ceil(Hu / R) + 2;
+        if (fHead.length !== fBC * fBR) fHead = new Int32Array(fBC * fBR);
+        fHead.fill(-1);
+        const bucket = (x, y) => clamp(Math.floor(y / R) + 1, 0, fBR - 1) * fBC + clamp(Math.floor(x / R) + 1, 0, fBC - 1);
+        for (let i = 0; i < fN; i++) { const b = bucket(fX[i], fY[i]); fNext[i] = fHead[b]; fHead[b] = i; }
+        const ptrOn = ptr && curT - ptr.t < 1.2, pX = ptrOn ? ptr.x / cw : 0, pY = ptrOn ? ptr.y / cw : 0;
+        const sw = o.sides > 0 ? clamp(o.sides, 0.05, 0.45) : 0, inL = Wu * sw, inR = Wu * (1 - sw);
+        const decay = Math.exp(-dt * 0.8), catchUp = Math.min(1, dt * 7);
+        for (let i = 0; i < fN; i++) {
+          const K = FISH_KINDS[fKind[i]], al = fAl[i], x = fX[i], y = fY[i], vx = fVX[i], vy = fVY[i];
+          const sp = Math.sqrt(vx * vx + vy * vy) || 1, hx = vx / sp, hy = vy / sp, room = 1 + 1.6 * al;
+          const ex = 1.45 * room, ey = 1.1 * A * room;
+          let ax = 0, ay = 0, sx = 0, sy = 0, mvx = 0, mvy = 0, mx = 0, my = 0, m = 0, nAl = 0;
+          const bc = clamp(Math.floor(x / R) + 1, 0, fBC - 1), br = clamp(Math.floor(y / R) + 1, 0, fBR - 1);
+          for (let rr = Math.max(0, br - 1); rr <= Math.min(fBR - 1, br + 1); rr++) for (let cc = Math.max(0, bc - 1); cc <= Math.min(fBC - 1, bc + 1); cc++) {
+            for (let j = fHead[rr * fBC + cc]; j !== -1; j = fNext[j]) {
+              if (j === i) continue;
+              const dx = fX[j] - x, dy = fY[j] - y, d2 = dx * dx + dy * dy;
+              if (d2 > R2 || d2 < 1e-6) continue;
+              const d = Math.sqrt(d2);
+              if ((dx * hx + dy * hy) / d < -0.55) continue; // nothing seen straight behind
+              const qx = dx / ex, qy = dy / ey, q2 = qx * qx + qy * qy;
+              if (q2 < 1) { const q = Math.sqrt(q2) || 0.01, k = (1 - q) / q; sx -= qx * k; sy -= qy * k; }
+              if (fGrp[j] === fGrp[i]) { mvx += fVX[j]; mvy += fVY[j]; mx += dx; my += dy; m++; }
+              else if (d < 2.5) { sx -= (dx / d) * (1 - d / 2.5) * 0.5; sy -= (dy / d) * (1 - d / 2.5) * 0.5; }
+              if (fAl[j] > nAl) nAl = fAl[j];
+            }
+          }
+          ax += sx * 26; ay += sy * 26;
+          if (m) {
+            const coh = K.cohere * (1 - 0.85 * al);
+            ax += (mvx / m - vx) * K.align + (mx / m) * coh; ay += (mvy / m - vy) * K.align + (my / m) * coh;
+            if (K.swirl) { const l = Math.hypot(mx, my) || 1; ax += (-my / l) * fSpin[i] * K.swirl * (1 - al) * 2; ay += (mx / l) * fSpin[i] * K.swirl * (1 - al) * 2; }
+          }
+          // keep to cruising speed, with a slow sideways wander of its own
+          const wob = (noise1(T * 0.45 + i * 0.37, o.seed + fGrp[i]) - 0.5) * K.wobble * 6;
+          ax += hx * (K.cruise - sp) * 1.4 - hy * wob; ay += hy * (K.cruise - sp) * 1.4 + hx * wob;
+          // threats: the creatures' heads and flanks, then the pointer
+          let fear = 0;
+          for (const c of list) {
+            const Rf = (c.Lb / cw) * 0.55 + 5, px = x * cw, py = y * cw, Rpx = Rf * cw;
+            if (px < c.minX - Rpx || px > c.maxX + Rpx || py < c.minY - Rpx || py > c.maxY + Rpx) continue;
+            const d = nearestThreat(c, x, y);
+            if (d >= Rf || d < 1e-3) continue;
+            const w = (1 - d / Rf) * (1 - d / Rf), awx = (x - thr.x) / d, awy = (y - thr.y) / d;
+            const side = thr.hx * (y - thr.y) - thr.hy * (x - thr.x) >= 0 ? 1 : -1; // break to your own side of the path
+            ax += (awx * 0.65 - thr.hy * side * 0.85) * 120 * w; ay += (awy * 0.65 + thr.hx * side * 0.85) * 120 * w;
+            if (w > fear) fear = w;
+          }
+          if (ptrOn) {
+            const dx = x - pX, dy = y - pY, d = Math.sqrt(dx * dx + dy * dy), Rp = 8;
+            if (d < Rp && d > 1e-3) { const w = (1 - d / Rp) * (1 - d / Rp); ax += (dx / d) * 140 * w; ay += (dy / d) * 140 * w; if (w > fear) fear = w; }
+          }
+          // the frame (a little room outside it) and, with sides, the clear centre
+          const mg = 2;
+          if (x < -mg + 3) ax += (-mg + 3 - x) * 6; if (x > Wu + mg - 3) ax -= (x - (Wu + mg - 3)) * 6;
+          if (y < -mg + 3) ay += (-mg + 3 - y) * 6; if (y > Hu + mg - 3) ay -= (y - (Hu + mg - 3)) * 6;
+          if (sw && x > inL - 2 && x < inR + 2) ax += (x < Wu / 2 ? -1 : 1) * 14 * (1 + Math.min(x - inL + 2, inR + 2 - x) * 0.3);
+          // fright: own fear, or a share of the most frightened neighbour's
+          const want = Math.max(Math.min(1, fear * 1.5), nAl * 0.8);
+          fAl[i] = want > al ? al + (want - al) * catchUp : al * decay;
+          let nvx = vx + ax * dt, nvy = vy + ay * dt;
+          const ns = Math.sqrt(nvx * nvx + nvy * nvy) || 1e-3, top = K.top * (1 + 0.7 * fAl[i]), lo = K.cruise * 0.4;
+          if (ns > top) { nvx *= top / ns; nvy *= top / ns; } else if (ns < lo) { nvx *= lo / ns; nvy *= lo / ns; }
+          const dth = Math.atan2(vx * nvy - vy * nvx, vx * nvx + vy * nvy);
+          fTurn[i] = fTurn[i] * 0.8 + 0.2 * Math.abs(dth / dt);
+          fVX[i] = nvx; fVY[i] = nvy;
+          fPh[i] += dt * (2 + Math.min(ns, top) * 0.9);
+        }
+        for (let i = 0; i < fN; i++) { fX[i] += fVX[i] * dt; fY[i] += fVY[i] * dt; }
+        fStep++;
+        if (fStep % FSNAP === 0) schoolSnap();
+      }
+      // A click: everything near it bolts straight out
+      function schoolBurst(px, py) {
+        const x0 = px / cw, y0 = py / cw, Rb = 13;
+        for (let i = 0; i < fN; i++) {
+          const dx = fX[i] - x0, dy = fY[i] - y0, d = Math.hypot(dx, dy);
+          if (d > Rb || d < 1e-3) continue;
+          const k = (1 - d / Rb) * 28;
+          fVX[i] += (dx / d) * k; fVY[i] += (dy / d) * k; fAl[i] = 1;
+        }
+      }
+      function schoolAdvance(T) {
+        if (!fN) return;
+        const target = Math.max(0, Math.floor(T / FSTEP + 1e-6));
+        if (target < fStep) schoolRestore(target);
+        // the creatures are posed at each step's own time, so live, seek and render agree
+        while (fStep < target) {
+          for (const c of list) pose(c, fStep * FSTEP);
+          schoolStep((fStep + 1) * FSTEP);
+        }
+      }
+      function schoolDraw() {
+        const A = o.cellAspect, tint0 = def.glowTint || TEAL;
+        const base = [(FISH_SILVER[0] + tint0[0]) / 2, (FISH_SILVER[1] + tint0[1]) / 2, (FISH_SILVER[2] + tint0[2]) / 2];
+        const T3 = [0, 0, 0];
+        for (let i = 0; i < fN; i++) {
+          const col = Math.floor(fX[i]), r = Math.floor(fY[i] / A);
+          if (col < 0 || r < 0 || col >= cols || r >= rows) continue;
+          const idx = r * cols + col;
+          if (kind[idx]) continue;
+          // a hard turn or a fright shows the silver flank for a moment
+          const glint = clamp((fTurn[i] - 2.2) / 3, 0, 1) * 0.8 + fAl[i] * 0.25, dp = fDepth[i];
+          for (let k = 0; k < 3; k++) T3[k] = base[k] + (FISH_GLINT[k] - base[k]) * clamp(glint, 0, 1);
+          const val = clamp(0.55 + 0.35 * dp + 0.1 * Math.sin(fPh[i]) + 0.5 * glint, 0, 1);
+          const ang = Math.atan2(fVY[i] / A, fVX[i]);
+          putChar(idx, EDGE, val, 0.75 + 0.25 * dp, T3, DIR[((Math.round(ang / (Math.PI / 4)) % 4) + 4) % 4]);
+        }
+      }
+      function pokeRings() {
+        for (const k of pokes) {
+          const age = curT - k.t, m = Math.min(o.width, o.height), a = Math.min(1.4, (1 - age / 2.6) * (0.8 + 0.6 * k.s));
+          const R = m * (0.008 + (0.035 + 0.025 * k.s) * age);
+          ring(k.x, k.y, R, a);
+          if (age > 0.25) ring(k.x, k.y, R * 0.66, a * 0.55);
+        }
+      }
+
       function frame(t) {
         const T = t * o.speed, amb = o.ambient == null ? 1 : o.ambient;
         const dt = lastT == null ? 0 : clamp(T - lastT, 0, 0.1);
@@ -1079,7 +1270,7 @@ const KOI_TINTS = {
         } else ptr = null;
         if ((o.splash || 0) !== lastSplash) {
           lastSplash = o.splash || 0;
-          if (ptr && def.pond) { pokes.push({ x: ptr.x, y: ptr.y, t: T, s: 1 }); ptr.t = T; }
+          if (ptr && (def.pond || fN)) { pokes.push({ x: ptr.x, y: ptr.y, t: T, s: 1 }); ptr.t = T; if (fN) schoolBurst(ptr.x, ptr.y); }
         }
         pokes = pokes.filter((k) => T - k.t < 2.6);
         // a startled fish darts: it covers more ground for a moment
@@ -1102,6 +1293,7 @@ const KOI_TINTS = {
           const burst = c.bolt == null || T - c.bolt > BOLT_RUN ? 0 : 3.4 * boltCurve(T - c.bolt, BOLT_RUN);
           c.offset += c.vel * dt * (2.2 * c.fear + burst);
         }
+        schoolAdvance(T);
         for (const c of list) pose(c, T);
         const useContour = o.contour !== false;
         if (useContour) contourTable();
@@ -1150,7 +1342,9 @@ const KOI_TINTS = {
           }
           if (P.strokes) P.strokes(c, emit);
         }
+        if (fN) schoolDraw();
         if (def.pond) pond(T, ox, oy, reach);
+        else if (pokes.length) pokeRings();
         // Shadows on the floor (glow dots)
         if (o.glow) for (const c of list) {
           const mul = c.plan.shadowMul || 1, gx = cw * (1.2 + 2.2 * c.depth) * mul, gy = ch * (0.8 + 1.4 * c.depth) * mul;
@@ -1947,7 +2141,7 @@ const KOI_TINTS = {
     function refresh() { atlasKey = ''; }
 
 
-    const REBUILD = ['scene', 'seed', 'count', 'species', 'size', 'speed', 'width', 'height', 'cols', 'cellAspect', 'spinePoints', 'source', 'text', 'textFont', 'koiPads', 'sides', 'varieties'];
+    const REBUILD = ['scene', 'seed', 'count', 'species', 'size', 'speed', 'width', 'height', 'cols', 'cellAspect', 'spinePoints', 'source', 'text', 'textFont', 'koiPads', 'sides', 'varieties', 'school'];
     function set(p) {
       sane(Object.assign(o, p));
       if ('width' in p || 'height' in p || 'cols' in p || 'cellAspect' in p) layout();
@@ -2123,6 +2317,13 @@ const KOI_TINTS = {
       this._reduced.addEventListener('change', this._onVis);
       this._fit();
       this._loop();
+      // interactive: the pointer reaches the scene (koi follow or flee it, bait fish scatter, a click splashes)
+      if (!this._onPtr) {
+        const at = (e) => { const r = this.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; };
+        this._splash = 0;
+        this._onPtr = (e) => { if (!this._engine || !this.hasAttribute('interactive')) return; if (e.type === 'pointerleave') this._engine.set({ pointer: null }); else if (e.type === 'click') this._engine.set({ pointer: at(e), splash: ++this._splash }); else this._engine.set({ pointer: at(e) }); };
+        for (const ev of ['pointermove', 'pointerleave', 'click']) this.addEventListener(ev, this._onPtr);
+      }
     }
     disconnectedCallback() {
       cancelAnimationFrame(this._raf); this._raf = 0;
