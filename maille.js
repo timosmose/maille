@@ -221,7 +221,7 @@
     const o = sane(Object.assign({}, DEFAULTS, options || {}));
     let cw, ch, cols, rows;
     // Cell buffers written by scenes, read by draw()
-    let kind, chrO, shade, dim, TR, TG, TB, glow, GR, GG, GB, dash;
+    let quiet, kind, chrO, shade, dim, TR, TG, TB, glow, GR, GG, GB, dash;
     let scene = null;
 
     function layout() {
@@ -229,12 +229,12 @@
       cw = o.width / cols; ch = cw * o.cellAspect;
       rows = Math.ceil(o.height / ch);
       const n = cols * rows;
-      kind = new Uint8Array(n); chrO = new Uint16Array(n); shade = new Float32Array(n); dim = new Float32Array(n);
+      quiet = new Uint8Array(n); kind = new Uint8Array(n); chrO = new Uint16Array(n); shade = new Float32Array(n); dim = new Float32Array(n);
       TR = new Float32Array(n); TG = new Float32Array(n); TB = new Float32Array(n);
       glow = new Float32Array(n); GR = new Float32Array(n); GG = new Float32Array(n); GB = new Float32Array(n);
       dash = new Float32Array(n);
     }
-    function clear() { kind.fill(0); glow.fill(0); dash.fill(0); }
+    function clear() { quiet.fill(0); kind.fill(0); glow.fill(0); dash.fill(0); }
     function put(idx, k, s, v, t3) { kind[idx] = k; chrO[idx] = 0; shade[idx] = s; dim[idx] = v; TR[idx] = t3[0]; TG[idx] = t3[1]; TB[idx] = t3[2]; }
     function putChar(idx, k, s, v, t3, chr) { put(idx, k, s, v, t3); chrO[idx] = chr.codePointAt(0); }
     function putGlow(idx, I, t3) { if (I > glow[idx]) { glow[idx] = I; GR[idx] = t3[0]; GG[idx] = t3[1]; GB[idx] = t3[2]; } }
@@ -1240,11 +1240,12 @@ const KOI_TINTS = {
           const idx = r * cols + col;
           if (kind[idx]) continue;
           // a hard turn or a fright shows the silver flank for a moment
-          const glint = clamp((fTurn[i] - 2.2) / 3, 0, 1) * 0.8 + fAl[i] * 0.25, dp = fDepth[i];
+          const glint = clamp((fTurn[i] - 2.2) / 3, 0, 1) * 0.5 + fAl[i] * 0.15, dp = fDepth[i];
           for (let k = 0; k < 3; k++) T3[k] = base[k] + (FISH_GLINT[k] - base[k]) * clamp(glint, 0, 1);
-          const val = clamp(0.55 + 0.35 * dp + 0.1 * Math.sin(fPh[i]) + 0.5 * glint, 0, 1);
+          const val = clamp(0.22 + 0.2 * dp + 0.05 * Math.sin(fPh[i]) + 0.35 * glint, 0, 1);
           const ang = Math.atan2(fVY[i] / A, fVX[i]);
-          putChar(idx, EDGE, val, 0.75 + 0.25 * dp, T3, DIR[((Math.round(ang / (Math.PI / 4)) % 4) + 4) % 4]);
+          putChar(idx, EDGE, val, 0.42 + 0.22 * dp, T3, DIR[((Math.round(ang / (Math.PI / 4)) % 4) + 4) % 4]);
+          quiet[idx] = 1; // no accent flashes on the fish: they stay in the background
         }
       }
       function pokeRings() {
@@ -2104,7 +2105,7 @@ const KOI_TINTS = {
         const x0 = Math.round(c * cw), x1 = Math.round((c + 1) * cw), y0 = Math.round(r * ch), y1 = Math.round((r + 1) * ch);
         const tr = TR[idx], tg = TG[idx], tb = TB[idx], v = dim[idx], s = shade[idx];
         const key = ihash(c, r, 17), slot = Math.floor(t * o.flicker + (key % 997) / 97);
-        const isAcc = rnd3(key, slot, 7) < o.glitch, pick = ihash(key, slot, 2);
+        const isAcc = !quiet[idx] && rnd3(key, slot, 7) < o.glitch, pick = ihash(key, slot, 2);
         let code = chrO[idx];
         if (f < 1 && kd !== EDGE && n >= (f - 0.45) / 0.55) {
           // past the tile stage: the cell is only its glyph, in the tile colour; near the edge just a dot
