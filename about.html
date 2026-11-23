@@ -4,20 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>About Maille</title>
-<meta name="description" content="Maille draws animated scenes out of text characters, live in the browser. Tune a scene, bring your own photo or words, embed it anywhere. Open source and free.">
+<meta name="description" content="Animated ASCII scenes you tune in the browser and embed in any website. Free and open source.">
 <link rel="canonical" href="https://maille-pi.vercel.app/about.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Maille">
 <meta property="og:url" content="https://maille-pi.vercel.app/about.html">
 <meta property="og:title" content="About Maille">
-<meta property="og:description" content="Maille draws animated scenes out of text characters, live in the browser. Tune a scene, bring your own photo or words, embed it anywhere. Open source and free.">
+<meta property="og:description" content="Animated ASCII scenes you tune in the browser and embed in any website. Free and open source.">
 <meta property="og:image" content="https://maille-pi.vercel.app/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Maille, animated ASCII scenes for any website">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="About Maille">
-<meta name="twitter:description" content="Maille draws animated scenes out of text characters, live in the browser. Tune a scene, bring your own photo or words, embed it anywhere. Open source and free.">
+<meta name="twitter:description" content="Animated ASCII scenes you tune in the browser and embed in any website. Free and open source.">
 <meta name="twitter:image" content="https://maille-pi.vercel.app/og.png">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
@@ -26,9 +26,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=JetBrains+Mono:wght@400&display=swap">
 <style>
-  /* Design system of timdalverny.com (dark): warm greys, Inter, pills and soft rings. One reading column. */
   :root {
-    --gray-1: #12110f; --gray-2: #1d1c1a; --gray-3: #252321; --gray-4: #2d2b28; --gray-5: #34322f;
+    --gray-1: #12110f; --gray-2: #1d1c1a; --gray-3: #252321; --gray-4: #2d2b28;
     --gray-10: #918e88; --gray-11: #b6b3ad; --gray-12: #eeece8;
     --ring: 0 0 0 1px rgb(255 255 255 / 0.08);
     --sans: "Inter", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
@@ -37,9 +36,9 @@
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--gray-1); color: var(--gray-11); font: 400 16px/26px var(--sans); font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased; padding: 24px max(16px, env(safe-area-inset-left, 0px)) 96px; }
-  a { color: inherit; }
+  a { color: var(--gray-12); }
   :focus-visible { outline: 2px solid var(--gray-12); outline-offset: 2px; border-radius: 4px; }
-  main { max-width: 760px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 72px; }
+  main { max-width: 760px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; }
   nav { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
   nav span { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
   nav span a { padding: 5px 12px; border-radius: 999px; color: var(--gray-10); text-decoration: none; transition: color 150ms ease, background-color 150ms ease; }
@@ -49,65 +48,26 @@
   nav span a.cta svg { flex: none; }
   .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 500; color: var(--gray-12); text-decoration: none; }
   .ver { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; margin-left: -2px; border-radius: 999px; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12); font: 500 12px/1 var(--sans); color: var(--gray-10); font-variant-numeric: tabular-nums; }
-
-  h1 { font-size: 48px; line-height: 52px; margin: 0 0 16px; font-weight: 600; color: var(--gray-12); text-wrap: balance; }
-  h2 { margin: 0 0 20px; padding-bottom: 12px; border-bottom: 1px solid var(--gray-4); font: 500 12px/16px var(--sans); text-transform: uppercase; color: var(--gray-11); }
-  h3 { margin: 0 0 6px; font: 500 16px/24px var(--sans); color: var(--gray-12); }
-  p { margin: 0 0 12px; max-width: 62ch; }
-  .lead { font-size: 18px; line-height: 28px; }
+  h1 { font-size: 32px; line-height: 38px; margin: 0 0 8px; font-weight: 600; color: var(--gray-12); text-wrap: balance; }
+  h2 { font-size: 18px; line-height: 26px; margin: 0 0 10px; font-weight: 500; color: var(--gray-12); }
+  p { margin: 0 0 12px; max-width: 65ch; }
+  ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; max-width: 65ch; }
   code { font: 13px var(--mono); }
-  p code, td code, .chips code { background: var(--gray-2); box-shadow: var(--ring); border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
-
-  .cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 28px; }
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 18px; border-radius: 999px; font: 500 14px var(--sans); text-decoration: none; color: var(--gray-12); background: var(--gray-2); box-shadow: var(--ring); cursor: pointer; border: 0; transition: background-color 150ms ease; }
-  .btn:hover { background: var(--gray-3); }
-  .btn.primary { background: var(--gray-12); color: var(--gray-1); box-shadow: none; }
-  .btn.primary:hover { background: #fff; }
-  .btn svg { flex: none; }
-  .meta { font-size: 14px; line-height: 22px; color: var(--gray-10); margin: 14px 0 0; }
-
-  /* Showcase: one large live scene, a row of pills to switch it */
-  .show { display: grid; gap: 12px; }
-  .stage { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #050506; box-shadow: var(--ring); }
-  .stage maille-scene { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .tabs { display: flex; flex-wrap: wrap; gap: 4px; }
-  .tabs button { height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: var(--gray-10); font: 400 14px var(--sans); cursor: pointer; transition: color 150ms ease, background-color 150ms ease; }
-  .tabs button:hover { color: var(--gray-12); background: var(--gray-2); }
-  .tabs button[aria-pressed="true"] { color: var(--gray-12); background: var(--gray-2); box-shadow: var(--ring); }
-
-  /* What you can do: four cards */
-  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .card { padding: 20px; border-radius: 12px; background: var(--gray-2); box-shadow: var(--ring); }
-  .card p { margin: 0; font-size: 15px; line-height: 24px; }
-
-  /* Embed */
-  pre { margin: 0 0 16px; background: var(--gray-2); box-shadow: var(--ring); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font: 13px/1.6 var(--mono); color: var(--gray-12); }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
-  .chips code { color: var(--gray-12); }
-  details { border-top: 1px solid var(--gray-4); }
-  details:last-of-type { border-bottom: 1px solid var(--gray-4); }
-  summary { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; cursor: pointer; list-style: none; color: var(--gray-12); font-weight: 500; font-size: 15px; }
-  summary::-webkit-details-marker { display: none; }
-  summary::after { content: "+"; color: var(--gray-10); font-weight: 400; font-size: 18px; }
-  details[open] summary::after { content: "−"; }
-  details > div { padding-bottom: 16px; }
+  p code, td code, .chips code { background: var(--gray-2); box-shadow: var(--ring); border-radius: 4px; padding: 1px 5px; white-space: nowrap; color: var(--gray-12); }
+  pre { margin: 0 0 12px; background: var(--gray-2); box-shadow: var(--ring); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font: 13px/1.6 var(--mono); color: var(--gray-12); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .table { overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; font-size: 14px; line-height: 22px; }
   th, td { text-align: left; padding: 9px 12px 9px 0; border-bottom: 1px solid var(--gray-4); vertical-align: top; }
   th { color: var(--gray-10); font-weight: 400; }
-  tr:last-child td { border-bottom: 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 18px; border-radius: 999px; font: 500 14px var(--sans); text-decoration: none; color: var(--gray-12); background: var(--gray-2); box-shadow: var(--ring); transition: background-color 150ms ease; }
+  .btn:hover { background: var(--gray-3); }
+  .btn.primary { background: var(--gray-12); color: var(--gray-1); box-shadow: none; }
+  .btn.primary:hover { background: #fff; }
+  .btn svg { flex: none; }
 
-  /* Skill */
-  .skill { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
-  .prompts { display: grid; gap: 8px; }
-  .prompt { margin: 0; padding: 14px 16px; border-radius: 12px; background: var(--gray-2); box-shadow: var(--ring); color: var(--gray-12); font-size: 15px; line-height: 24px; max-width: none; }
-
-  footer { display: flex; justify-content: space-between; gap: 16px; padding-top: 20px; border-top: 1px solid var(--gray-4); font-size: 14px; color: var(--gray-10); }
-  footer a { color: var(--gray-10); text-decoration: none; }
-  footer a:hover { color: var(--gray-12); }
-  footer span { display: flex; gap: 16px; }
-
-  /* Sharks swim in the margins on wide screens, as on timdalverny.com; the column stays clear */
+  /* Sharks in the margins on wide screens, as on timdalverny.com; the column stays clear */
   .pond { display: none; }
   @media (min-width: 1200px) {
     .pond { --column: 404px; position: fixed; inset: 0; z-index: -1; display: block; pointer-events: none;
@@ -115,100 +75,72 @@
       mask-image: linear-gradient(to right, #000 calc(50% - var(--column)), transparent calc(50% - var(--column)), transparent calc(50% + var(--column)), #000 calc(50% + var(--column))); }
     .pond maille-scene { position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; }
   }
-
-  @media (max-width: 720px) {
-    main { gap: 56px; }
-    h1 { font-size: 36px; line-height: 40px; }
-    .lead { font-size: 16px; line-height: 26px; }
-    .cards { grid-template-columns: 1fr; }
-  }
   @media (max-width: 520px) {
     nav .opt { display: none; }
     nav span a { padding: 5px 8px; }
     nav span a.cta { margin-left: 4px; padding: 0 12px; }
     .cta .long { display: none; }
-    footer { flex-direction: column; }
   }
 </style>
 </head>
 <body>
-<div class="pond" aria-hidden="true"><maille-scene id="sharks" dpr="1"></maille-scene></div>
+<div class="pond" aria-hidden="true"><maille-scene id="sharks"></maille-scene></div>
 <main>
   <nav><a class="brand" href="./"><svg width="20" height="20" viewBox="0 0 160 160" aria-hidden="true"><rect width="160" height="160" rx="36" fill="#BEA5F6"/><path d="M97.47 30H118V60H72V130H42V85.47Z" fill="#030F2B"/></svg>Maille<span class="ver">v1.0</span></a><span><a class="opt" href="./">Open Maille</a><a href="https://timdalverny.com" rel="author">By Tim d'Alverny</a><a class="cta" href="skill.html"><svg width="14" height="14" viewBox="0 0 1200 1200" aria-hidden="true"><path fill="#d97757" d="M 233.959793 800.214905 L 468.644287 668.536987 L 472.590637 657.100647 L 468.644287 650.738403 L 457.208069 650.738403 L 417.986633 648.322144 L 283.892639 644.69812 L 167.597321 639.865845 L 54.926208 633.825623 L 26.577238 627.785339 L 3.3e-05 592.751709 L 2.73832 575.27533 L 26.577238 559.248352 L 60.724873 562.228149 L 136.187973 567.382629 L 249.422867 575.194763 L 331.570496 580.026978 L 453.261841 592.671082 L 472.590637 592.671082 L 475.328857 584.859009 L 468.724915 580.026978 L 463.570557 575.194763 L 346.389313 495.785217 L 219.543671 411.865906 L 153.100723 363.543762 L 117.181267 339.060425 L 99.060455 316.107361 L 91.248367 266.01355 L 123.865784 230.093994 L 167.677887 233.073853 L 178.872513 236.053772 L 223.248367 270.201477 L 318.040283 343.570496 L 441.825592 434.738342 L 459.946411 449.798706 L 467.194672 444.64447 L 468.080597 441.020203 L 459.946411 427.409485 L 392.617493 305.718323 L 320.778564 181.932983 L 288.80542 130.630859 L 280.348999 99.865845 C 277.369171 87.221436 275.194641 76.590698 275.194641 63.624268 L 312.322174 13.20813 L 332.8591 6.604126 L 382.389313 13.20813 L 403.248352 31.328979 L 434.013519 101.71814 L 483.865753 212.537048 L 561.181274 363.221497 L 583.812134 407.919434 L 595.892639 449.315491 L 600.40271 461.959839 L 608.214783 461.959839 L 608.214783 454.711609 L 614.577271 369.825623 L 626.335632 265.61084 L 637.771851 131.516846 L 641.718201 93.745117 L 660.402832 48.483276 L 697.530334 24.000122 L 726.52356 37.852417 L 750.362549 72 L 747.060486 94.067139 L 732.886047 186.201416 L 705.100708 330.52356 L 686.979919 427.167847 L 697.530334 427.167847 L 709.61084 415.087341 L 758.496704 350.174561 L 840.644348 247.490051 L 876.885925 206.738342 L 919.167847 161.71814 L 946.308838 140.29541 L 997.61084 140.29541 L 1035.38269 196.429626 L 1018.469849 254.416199 L 965.637634 321.422852 L 921.825562 378.201538 L 859.006714 462.765259 L 819.785278 530.41626 L 823.409424 535.812073 L 832.75177 534.92627 L 974.657776 504.724915 L 1051.328979 490.872559 L 1142.818848 475.167786 L 1184.214844 494.496582 L 1188.724854 514.147644 L 1172.456421 554.335693 L 1074.604126 578.496765 L 959.838989 601.449829 L 788.939636 641.879272 L 786.845764 643.409485 L 789.261841 646.389343 L 866.255127 653.637634 L 899.194702 655.409424 L 979.812134 655.409424 L 1129.932861 666.604187 L 1169.154419 692.537109 L 1192.671265 724.268677 L 1188.724854 748.429688 L 1128.322144 779.194641 L 1046.818848 759.865845 L 856.590759 714.604126 L 791.355774 698.335754 L 782.335693 698.335754 L 782.335693 703.731567 L 836.69812 756.885986 L 936.322205 846.845581 L 1061.073975 962.81897 L 1067.436279 991.490112 L 1051.409424 1014.120911 L 1034.496704 1011.704712 L 924.885986 929.234924 L 882.604126 892.107544 L 786.845764 811.48999 L 780.483276 811.48999 L 780.483276 819.946289 L 802.550415 852.241699 L 919.087341 1027.409424 L 925.127625 1081.127686 L 916.671204 1098.604126 L 886.469849 1109.154419 L 853.288696 1103.114136 L 785.073914 1007.355835 L 714.684631 899.516785 L 657.906067 802.872498 L 650.979858 806.81897 L 617.476624 1167.704834 L 601.771851 1186.147705 L 565.530212 1200 L 535.328857 1177.046997 L 519.302124 1139.919556 L 535.328857 1066.550537 L 554.657776 970.792053 L 570.362488 894.68457 L 584.536926 800.134277 L 592.993347 768.724976 L 592.429626 766.630859 L 585.503479 767.516968 L 514.22821 865.369263 L 405.825531 1011.865906 L 320.053711 1103.677979 L 299.516815 1111.812256 L 263.919525 1093.369263 L 267.221497 1060.429688 L 287.114136 1031.114136 L 405.825531 880.107361 L 477.422913 786.52356 L 523.651062 732.483276 L 523.328918 724.671265 L 520.590698 724.671265 L 205.288605 929.395935 L 149.154434 936.644409 L 124.993355 914.01355 L 127.973183 876.885986 L 139.409409 864.80542 L 234.201385 799.570435 L 233.879227 799.8927 Z"/></svg><span class="long">Claude</span>skill</a></span></nav>
 
   <section>
-    <h1>Animated ASCII scenes for any website</h1>
-    <p class="lead">Maille draws sharks, koi, birds, mountains and the sea out of text characters, frame by frame, right in the browser. You tune a scene, bring in your own photo or a few words, and paste it into your site with one line. It is open source and free.</p>
-    <div class="cta-row">
-      <a class="btn primary" href="./">Open Maille</a>
-      <a class="btn" href="https://github.com/timosmose/maille">View on GitHub</a>
-    </div>
-    <p class="meta">MIT license · one script, no dependencies · nothing loaded from third parties</p>
-  </section>
-
-  <section class="show" aria-label="Scenes">
-    <div class="stage"><maille-scene id="stage" preset="golden-hour"></maille-scene></div>
-    <div class="tabs" role="group" aria-label="Pick a scene">
-      <button type="button" data-preset="golden-hour" aria-pressed="true">Alpenglow</button>
-      <button type="button" data-preset="sharks" data-config='{"cols":150,"count":5,"heading":-20,"spread":40}'>Sharks</button>
-      <button type="button" data-preset="koi" data-config='{"cols":150,"count":9,"koiPads":5}'>Koi</button>
-      <button type="button" data-preset="mantas" data-config='{"cols":150,"count":3,"heading":-20}'>Mantas</button>
-      <button type="button" data-preset="starlings">Birds</button>
-      <button type="button" data-preset="night-ocean" data-config='{"cols":150}'>Ocean</button>
-      <button type="button" data-preset="day-cycle">Day and night</button>
-      <button type="button" data-preset="type" data-config='{"text":"MAILLE"}'>Type</button>
-    </div>
-  </section>
-
-  <section>
-    <h2>Why Maille</h2>
-    <p>Motion on a website usually means a video file that softens when it scales, or a heavy library that does far more than you need. Maille takes another route: every scene is a small simulation drawn as characters on a canvas, so it stays sharp at any size, never plays back the same way twice, and costs a single script.</p>
-    <p>It can sit in a card, fill a hero, or swim behind your text, the way the sharks do on the edges of this page.</p>
+    <h1>About Maille</h1>
+    <p>Maille makes animated ASCII scenes you can embed in any website. Pick a scene or use your own image or text, adjust it, then copy the embed code. It is free and open source under the MIT license.</p>
+    <div class="row"><a class="btn primary" href="./">Open Maille</a><a class="btn" href="https://github.com/timosmose/maille">View on GitHub</a></div>
   </section>
 
   <section>
     <h2>What you can do</h2>
-    <div class="cards">
-      <div class="card"><h3>Start from a scene</h3><p>Sharks, mantas, koi, flocks of birds, the open sea, and an alpine range with its own sunrise and night. Each one moves on its own terms.</p></div>
-      <div class="card"><h3>Bring your own</h3><p>Drop in a photo and it gets a quiet motion of its own, or type a word and let it ripple. Your image never leaves your browser.</p></div>
-      <div class="card"><h3>Tune every detail</h3><p>Density, glyphs, colour, speed, glow, format, the number of creatures. Your settings are still there when you come back.</p></div>
-      <div class="card"><h3>Take it anywhere</h3><p>Copy the embed for any HTML page, Webflow or Framer, share an iframe link, or save a PNG or a video.</p></div>
-    </div>
+    <ul>
+      <li>Start from a scene: sharks, mantas, koi, birds, waves, mountains.</li>
+      <li>Use your own image or text.</li>
+      <li>Adjust density, characters, colour, speed and format.</li>
+      <li>Embed it on any site, or save a PNG or a video.</li>
+    </ul>
   </section>
 
   <section>
-    <h2>Embed</h2>
-    <p>The <strong>Copy embed code</strong> button in Maille writes this for you, with your settings inside <code>config</code>. The scene fills its element, pauses when it is out of view, and shows a still frame to visitors who prefer reduced motion.</p>
+    <h2>Script embed</h2>
+    <p>Works in any HTML page, Webflow (Embed element) and Framer (Embed component, HTML mode). The <strong>Copy embed code</strong> button writes it for you with your settings inside <code>config</code>.</p>
 <pre><code>&lt;script src="https://SITE/maille.js" defer&gt;&lt;/script&gt;
 &lt;maille-scene preset="alpenglow" style="display:block;width:100%;aspect-ratio:16/9"&gt;&lt;/maille-scene&gt;</code></pre>
-    <p>Built-in presets:</p>
-    <div class="chips"><code>alpenglow</code><code>golden-hour</code><code>alpine-day</code><code>day-cycle</code><code>fine-grain</code><code>block-alps</code><code>sharks</code><code>hammerheads</code><code>mantas</code><code>koi</code><code>gold-koi</code><code>koi-lanes</code><code>gulls</code><code>starlings</code><code>night-ocean</code><code>binary-sea</code><code>type</code></div>
+    <p>The scene fills its element. It pauses when out of view and shows a still frame to visitors who prefer reduced motion.</p>
+  </section>
 
-    <details>
-      <summary>Iframe</summary>
-      <div>
-        <p>For tools that only accept a URL, such as Notion or some page builders. The settings travel in the address.</p>
+  <section>
+    <h2>Iframe embed</h2>
+    <p>For tools that only accept a URL. The settings travel in the address.</p>
 <pre><code>&lt;iframe src="https://SITE/e.html?preset=alpine-day"
         style="width:100%;aspect-ratio:16/9;border:0" loading="lazy"&gt;&lt;/iframe&gt;</code></pre>
-      </div>
-    </details>
-    <details>
-      <summary>Attributes</summary>
-      <div class="table"><table>
-        <thead><tr><th>Attribute</th><th>Value</th><th>Effect</th></tr></thead>
-        <tbody>
-          <tr><td><code>preset</code></td><td>a name above</td><td>Start from a built-in scene.</td></tr>
-          <tr><td><code>config</code></td><td>JSON</td><td>Settings copied from Maille, merged on top of the preset.</td></tr>
-          <tr><td><code>speed</code></td><td>number</td><td>Playback speed, 1 is normal.</td></tr>
-          <tr><td><code>paused</code></td><td>present or absent</td><td>Holds the current frame.</td></tr>
-          <tr><td><code>motion</code></td><td><code>always</code></td><td>Keeps animating even when the visitor prefers reduced motion.</td></tr>
-          <tr><td><code>dpr</code></td><td>number</td><td>Caps the pixel density, e.g. <code>1</code> for a full-page background.</td></tr>
-        </tbody>
-      </table></div>
-    </details>
-    <details>
-      <summary>JavaScript</summary>
-      <div>
+  </section>
+
+  <section>
+    <h2>Attributes</h2>
+    <div class="table"><table>
+      <thead><tr><th>Attribute</th><th>Value</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td><code>preset</code></td><td>a preset name</td><td>Start from a built-in scene.</td></tr>
+        <tr><td><code>config</code></td><td>JSON</td><td>Settings copied from Maille, merged on top of the preset.</td></tr>
+        <tr><td><code>speed</code></td><td>number</td><td>Playback speed, 1 is normal.</td></tr>
+        <tr><td><code>paused</code></td><td>present or absent</td><td>Holds the current frame.</td></tr>
+        <tr><td><code>motion</code></td><td><code>always</code></td><td>Keeps animating when the visitor prefers reduced motion.</td></tr>
+        <tr><td><code>dpr</code></td><td>number</td><td>Caps the pixel density, e.g. <code>1</code> for a full-page background.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>Presets</h2>
+    <div class="chips"><code>alpenglow</code><code>golden-hour</code><code>alpine-day</code><code>day-cycle</code><code>fine-grain</code><code>block-alps</code><code>sharks</code><code>hammerheads</code><code>mantas</code><code>koi</code><code>gold-koi</code><code>koi-lanes</code><code>gulls</code><code>starlings</code><code>night-ocean</code><code>binary-sea</code><code>type</code></div>
+  </section>
+
+  <section>
+    <h2>JavaScript</h2>
 <pre><code>const scene = document.querySelector('maille-scene');
 scene.set({ agDaylight: 1, agBirds: 9 });   // change any setting live
 scene.pause(); scene.seek(12.5);             // exact frame at 12.5 s
@@ -219,81 +151,31 @@ scene.source = videoOrCanvas;                // image scene: draw any image, vid
 // Without the element
 const engine = Maille.create({ scene: 'waves', width: 1920, height: 1080, cols: 160 });
 engine.render(canvas.getContext('2d'), 3.2);</code></pre>
-      </div>
-    </details>
   </section>
 
-  <section class="skill">
-    <div>
-      <h2>Maille for Claude</h2>
-      <p>The site gives you one scene. The skill gives Claude the whole process behind the films: choosing scenes, giving a photo its own motion, cutting shots together with type, and rendering every frame to a clean MP4. You describe the film in plain words, and Claude builds it on your machine.</p>
-    </div>
-    <div class="prompts">
-      <p class="prompt">Make a 10 second vertical loop of koi with the word “Calm” in the middle, and render it to MP4.</p>
-      <p class="prompt">A 20 second film in three shots: sharks from above, a mountain at dusk, then our name in type.</p>
-    </div>
-    <div>
-      <div class="cta-row" style="margin-top:0">
-        <a class="btn primary" href="skill.html"><svg width="14" height="14" viewBox="0 0 1200 1200" aria-hidden="true"><path fill="#d97757" d="M 233.959793 800.214905 L 468.644287 668.536987 L 472.590637 657.100647 L 468.644287 650.738403 L 457.208069 650.738403 L 417.986633 648.322144 L 283.892639 644.69812 L 167.597321 639.865845 L 54.926208 633.825623 L 26.577238 627.785339 L 3.3e-05 592.751709 L 2.73832 575.27533 L 26.577238 559.248352 L 60.724873 562.228149 L 136.187973 567.382629 L 249.422867 575.194763 L 331.570496 580.026978 L 453.261841 592.671082 L 472.590637 592.671082 L 475.328857 584.859009 L 468.724915 580.026978 L 463.570557 575.194763 L 346.389313 495.785217 L 219.543671 411.865906 L 153.100723 363.543762 L 117.181267 339.060425 L 99.060455 316.107361 L 91.248367 266.01355 L 123.865784 230.093994 L 167.677887 233.073853 L 178.872513 236.053772 L 223.248367 270.201477 L 318.040283 343.570496 L 441.825592 434.738342 L 459.946411 449.798706 L 467.194672 444.64447 L 468.080597 441.020203 L 459.946411 427.409485 L 392.617493 305.718323 L 320.778564 181.932983 L 288.80542 130.630859 L 280.348999 99.865845 C 277.369171 87.221436 275.194641 76.590698 275.194641 63.624268 L 312.322174 13.20813 L 332.8591 6.604126 L 382.389313 13.20813 L 403.248352 31.328979 L 434.013519 101.71814 L 483.865753 212.537048 L 561.181274 363.221497 L 583.812134 407.919434 L 595.892639 449.315491 L 600.40271 461.959839 L 608.214783 461.959839 L 608.214783 454.711609 L 614.577271 369.825623 L 626.335632 265.61084 L 637.771851 131.516846 L 641.718201 93.745117 L 660.402832 48.483276 L 697.530334 24.000122 L 726.52356 37.852417 L 750.362549 72 L 747.060486 94.067139 L 732.886047 186.201416 L 705.100708 330.52356 L 686.979919 427.167847 L 697.530334 427.167847 L 709.61084 415.087341 L 758.496704 350.174561 L 840.644348 247.490051 L 876.885925 206.738342 L 919.167847 161.71814 L 946.308838 140.29541 L 997.61084 140.29541 L 1035.38269 196.429626 L 1018.469849 254.416199 L 965.637634 321.422852 L 921.825562 378.201538 L 859.006714 462.765259 L 819.785278 530.41626 L 823.409424 535.812073 L 832.75177 534.92627 L 974.657776 504.724915 L 1051.328979 490.872559 L 1142.818848 475.167786 L 1184.214844 494.496582 L 1188.724854 514.147644 L 1172.456421 554.335693 L 1074.604126 578.496765 L 959.838989 601.449829 L 788.939636 641.879272 L 786.845764 643.409485 L 789.261841 646.389343 L 866.255127 653.637634 L 899.194702 655.409424 L 979.812134 655.409424 L 1129.932861 666.604187 L 1169.154419 692.537109 L 1192.671265 724.268677 L 1188.724854 748.429688 L 1128.322144 779.194641 L 1046.818848 759.865845 L 856.590759 714.604126 L 791.355774 698.335754 L 782.335693 698.335754 L 782.335693 703.731567 L 836.69812 756.885986 L 936.322205 846.845581 L 1061.073975 962.81897 L 1067.436279 991.490112 L 1051.409424 1014.120911 L 1034.496704 1011.704712 L 924.885986 929.234924 L 882.604126 892.107544 L 786.845764 811.48999 L 780.483276 811.48999 L 780.483276 819.946289 L 802.550415 852.241699 L 919.087341 1027.409424 L 925.127625 1081.127686 L 916.671204 1098.604126 L 886.469849 1109.154419 L 853.288696 1103.114136 L 785.073914 1007.355835 L 714.684631 899.516785 L 657.906067 802.872498 L 650.979858 806.81897 L 617.476624 1167.704834 L 601.771851 1186.147705 L 565.530212 1200 L 535.328857 1177.046997 L 519.302124 1139.919556 L 535.328857 1066.550537 L 554.657776 970.792053 L 570.362488 894.68457 L 584.536926 800.134277 L 592.993347 768.724976 L 592.429626 766.630859 L 585.503479 767.516968 L 514.22821 865.369263 L 405.825531 1011.865906 L 320.053711 1103.677979 L 299.516815 1111.812256 L 263.919525 1093.369263 L 267.221497 1060.429688 L 287.114136 1031.114136 L 405.825531 880.107361 L 477.422913 786.52356 L 523.651062 732.483276 L 523.328918 724.671265 L 520.590698 724.671265 L 205.288605 929.395935 L 149.154434 936.644409 L 124.993355 914.01355 L 127.973183 876.885986 L 139.409409 864.80542 L 234.201385 799.570435 L 233.879227 799.8927 Z"/></svg>Get the skill</a>
-        <a class="btn" href="maille-skill.zip" download="maille-motion.zip">Download the zip</a>
-      </div>
-      <p class="meta">Works in the Claude app and Claude Code · free</p>
-    </div>
+  <section>
+    <h2>Claude skill</h2>
+    <p>The skill gives Claude the process behind the Maille films: scenes, photos with their own motion, type, and frame-exact MP4 renders. It works in the Claude app and Claude Code.</p>
+    <div class="row"><a class="btn primary" href="skill.html"><svg width="14" height="14" viewBox="0 0 1200 1200" aria-hidden="true"><path fill="#d97757" d="M 233.959793 800.214905 L 468.644287 668.536987 L 472.590637 657.100647 L 468.644287 650.738403 L 457.208069 650.738403 L 417.986633 648.322144 L 283.892639 644.69812 L 167.597321 639.865845 L 54.926208 633.825623 L 26.577238 627.785339 L 3.3e-05 592.751709 L 2.73832 575.27533 L 26.577238 559.248352 L 60.724873 562.228149 L 136.187973 567.382629 L 249.422867 575.194763 L 331.570496 580.026978 L 453.261841 592.671082 L 472.590637 592.671082 L 475.328857 584.859009 L 468.724915 580.026978 L 463.570557 575.194763 L 346.389313 495.785217 L 219.543671 411.865906 L 153.100723 363.543762 L 117.181267 339.060425 L 99.060455 316.107361 L 91.248367 266.01355 L 123.865784 230.093994 L 167.677887 233.073853 L 178.872513 236.053772 L 223.248367 270.201477 L 318.040283 343.570496 L 441.825592 434.738342 L 459.946411 449.798706 L 467.194672 444.64447 L 468.080597 441.020203 L 459.946411 427.409485 L 392.617493 305.718323 L 320.778564 181.932983 L 288.80542 130.630859 L 280.348999 99.865845 C 277.369171 87.221436 275.194641 76.590698 275.194641 63.624268 L 312.322174 13.20813 L 332.8591 6.604126 L 382.389313 13.20813 L 403.248352 31.328979 L 434.013519 101.71814 L 483.865753 212.537048 L 561.181274 363.221497 L 583.812134 407.919434 L 595.892639 449.315491 L 600.40271 461.959839 L 608.214783 461.959839 L 608.214783 454.711609 L 614.577271 369.825623 L 626.335632 265.61084 L 637.771851 131.516846 L 641.718201 93.745117 L 660.402832 48.483276 L 697.530334 24.000122 L 726.52356 37.852417 L 750.362549 72 L 747.060486 94.067139 L 732.886047 186.201416 L 705.100708 330.52356 L 686.979919 427.167847 L 697.530334 427.167847 L 709.61084 415.087341 L 758.496704 350.174561 L 840.644348 247.490051 L 876.885925 206.738342 L 919.167847 161.71814 L 946.308838 140.29541 L 997.61084 140.29541 L 1035.38269 196.429626 L 1018.469849 254.416199 L 965.637634 321.422852 L 921.825562 378.201538 L 859.006714 462.765259 L 819.785278 530.41626 L 823.409424 535.812073 L 832.75177 534.92627 L 974.657776 504.724915 L 1051.328979 490.872559 L 1142.818848 475.167786 L 1184.214844 494.496582 L 1188.724854 514.147644 L 1172.456421 554.335693 L 1074.604126 578.496765 L 959.838989 601.449829 L 788.939636 641.879272 L 786.845764 643.409485 L 789.261841 646.389343 L 866.255127 653.637634 L 899.194702 655.409424 L 979.812134 655.409424 L 1129.932861 666.604187 L 1169.154419 692.537109 L 1192.671265 724.268677 L 1188.724854 748.429688 L 1128.322144 779.194641 L 1046.818848 759.865845 L 856.590759 714.604126 L 791.355774 698.335754 L 782.335693 698.335754 L 782.335693 703.731567 L 836.69812 756.885986 L 936.322205 846.845581 L 1061.073975 962.81897 L 1067.436279 991.490112 L 1051.409424 1014.120911 L 1034.496704 1011.704712 L 924.885986 929.234924 L 882.604126 892.107544 L 786.845764 811.48999 L 780.483276 811.48999 L 780.483276 819.946289 L 802.550415 852.241699 L 919.087341 1027.409424 L 925.127625 1081.127686 L 916.671204 1098.604126 L 886.469849 1109.154419 L 853.288696 1103.114136 L 785.073914 1007.355835 L 714.684631 899.516785 L 657.906067 802.872498 L 650.979858 806.81897 L 617.476624 1167.704834 L 601.771851 1186.147705 L 565.530212 1200 L 535.328857 1177.046997 L 519.302124 1139.919556 L 535.328857 1066.550537 L 554.657776 970.792053 L 570.362488 894.68457 L 584.536926 800.134277 L 592.993347 768.724976 L 592.429626 766.630859 L 585.503479 767.516968 L 514.22821 865.369263 L 405.825531 1011.865906 L 320.053711 1103.677979 L 299.516815 1111.812256 L 263.919525 1093.369263 L 267.221497 1060.429688 L 287.114136 1031.114136 L 405.825531 880.107361 L 477.422913 786.52356 L 523.651062 732.483276 L 523.328918 724.671265 L 520.590698 724.671265 L 205.288605 929.395935 L 149.154434 936.644409 L 124.993355 914.01355 L 127.973183 876.885986 L 139.409409 864.80542 L 234.201385 799.570435 L 233.879227 799.8927 Z"/></svg>Get the skill</a></div>
   </section>
 
   <section>
     <h2>Open source</h2>
-    <p>Maille is free and open source under the MIT license. Use it on personal and client work, read the code, fork it, change it. The engine, the site and the skill all live in one public repository.</p>
-    <p>If you make something with it, I would love to see it.</p>
-    <div class="cta-row">
-      <a class="btn" href="https://github.com/timosmose/maille">View on GitHub</a>
-      <a class="btn" href="https://github.com/timosmose/maille/issues">Report an issue</a>
-    </div>
+    <p>Maille is free to use, including on client work. The engine, the site and the skill are in one public repository under the <a href="https://github.com/timosmose/maille/blob/main/LICENSE">MIT license</a>. Bugs and ideas go in <a href="https://github.com/timosmose/maille/issues">GitHub issues</a>.</p>
   </section>
-
-  <footer><a href="https://timdalverny.com" rel="author">Made by Tim d'Alverny</a><span><a href="./">Open Maille</a><a href="skill.html">Claude skill</a><a href="https://github.com/timosmose/maille/blob/main/LICENSE">MIT license</a></span></footer>
 </main>
 <script src="maille.js?v=f80f4fda"></script>
 <script>
-  // Sharks in the two side bands, as on timdalverny.com: only the ASCII shows, and they dissolve as they reach the column
+  // Sharks in the two side bands: only the ASCII shows, and they dissolve as they reach the column
   const SHARKS = { bgAuto: false, background: 'transparent', grid: false, glow: false, ambient: 0, glitch: 0, inkAuto: false, ink: 0.5, brightness: 1.2, scene: 'sharks', seed: 4, count: 5, size: 0.6, trails: true, speciesSet: 'mix' };
   const COLUMN = 760 + 2 * 24, DISSOLVE = 72;
   function pond() {
     if (innerWidth < 1200) return;
     const w = innerWidth, r = (v) => Math.round(v * 10000) / 10000, x0 = (w - COLUMN) / 2 / w;
-    document.getElementById('sharks').config = { ...SHARKS, sides: r(Math.max(0.05, x0 - DISSOLVE / w)), cutout: [r(x0), r(1 - x0), r(DISSOLVE / w)], cols: Math.round(w / 6) };
+    document.getElementById('sharks').config = { ...SHARKS, sides: r(Math.max(0.05, x0 - DISSOLVE / w)), cutout: [r(x0), r(1 - x0), r(DISSOLVE / w)], cols: Math.round(w / 3.4) };
   }
   pond();
   let rt = 0; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(pond, 200); });
-
-  // Showcase: dissolve out, switch the scene, dissolve back in. Moves on by itself until a pill is clicked.
-  const stage = document.getElementById('stage');
-  const tabs = [...document.querySelectorAll('.tabs button')];
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let current = 0, busy = false, auto = !reduced, timer = 0;
-  function fade(from, to, ms) {
-    return new Promise((done) => {
-      const t0 = performance.now();
-      const step = (now) => { const x = Math.min(1, (now - t0) / ms); stage.presence = from + (to - from) * (1 - Math.pow(1 - x, 3)); x < 1 ? requestAnimationFrame(step) : done(); };
-      requestAnimationFrame(step);
-    });
-  }
-  async function show(i) {
-    if (busy || i === current) return;
-    busy = true;
-    tabs.forEach((b, k) => b.setAttribute('aria-pressed', k === i));
-    if (!reduced) await fade(1, 0, 350);
-    const b = tabs[i];
-    stage.setAttribute('config', b.dataset.config || '{}');
-    stage.setAttribute('preset', b.dataset.preset);
-    current = i;
-    if (!reduced) await fade(0, 1, 700); else stage.presence = 1;
-    busy = false;
-  }
-  tabs.forEach((b, i) => b.addEventListener('click', () => { auto = false; clearInterval(timer); show(i); }));
-  if (auto) timer = setInterval(() => { if (!document.hidden) show((current + 1) % tabs.length); }, 7000);
-
-  // Real address in the code samples
   if (/^https?:/.test(location.protocol)) document.querySelectorAll('pre code').forEach((c) => { c.textContent = c.textContent.replace(/https:\/\/SITE/g, location.origin); });
 </script>
 </body>

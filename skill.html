@@ -102,7 +102,7 @@
 </style>
 </head>
 <body>
-<div class="pond" aria-hidden="true"><maille-scene id="koi" dpr="1"></maille-scene><maille-scene id="sharks" dpr="1"></maille-scene></div>
+<div class="pond" aria-hidden="true"><maille-scene id="koi"></maille-scene><maille-scene id="sharks"></maille-scene></div>
 <main>
   <nav><a class="brand" href="./"><svg width="20" height="20" viewBox="0 0 160 160" aria-hidden="true"><rect width="160" height="160" rx="36" fill="#BEA5F6"/><path d="M97.47 30H118V60H72V130H42V85.47Z" fill="#030F2B"/></svg>Maille<span class="ver">v1.0</span></a><span><a class="opt" href="./">Open Maille</a><a href="about.html">About</a><a href="https://timdalverny.com" rel="author">By Tim d'Alverny</a></span></nav>
 
@@ -176,7 +176,7 @@ unzip -o /tmp/maille.zip -d ~/.claude/skills</pre><button class="copy" type="but
   const COLUMN = 760 + 2 * 24, DISSOLVE = 72;
   function bands() {
     const w = innerWidth, r = (v) => Math.round(v * 10000) / 10000, x0 = (w - COLUMN) / 2 / w;
-    return { sides: r(Math.max(0.05, x0 - DISSOLVE / w)), cutout: [r(x0), r(1 - x0), r(DISSOLVE / w)], cols: Math.round(w / 6) }; // background: coarser cells and 1x resolution keep two full-screen layers light
+    return { sides: r(Math.max(0.05, x0 - DISSOLVE / w)), cutout: [r(x0), r(1 - x0), r(DISSOLVE / w)], cols: Math.round(w / 3.4) }; // same cell size and full resolution as timdalverny.com, so the margins stay sharp
   }
   function pond() {
     if (innerWidth < 1200) return;
