@@ -9,7 +9,7 @@ Static site, no build step. Deploy the folder as-is (Vercel: framework "Other", 
 | `index.html` | The tool: full-screen preview, one scene per kind in the bottom bar, your image or text, settings panel open by default (main + More), embed code, PNG and video |
 | `maille.js` | The library: rendering engine + `<maille-scene>` web component (the file embeds load) |
 | `e.html` | Iframe embed: `e.html?preset=alpine-day` or `e.html?c=<config>` |
-| `docs.html` | Public docs: script embed, iframe embed, attributes, presets, JS API |
+| `about.html` | About: live showcase, what Maille is for, embed reference (script, iframe, attributes, JS), the Claude skill, open source; sharks in the margins as on timdalverny.com. `docs.html` redirects here |
 | `vercel.json` | CORS on `maille.js` so other sites can load it, iframe allowed everywhere |
 | `favicon.svg`, `favicon.ico`, `apple-touch-icon.png` | The Maille mark |
 | `fonts/` | JetBrains Mono (OFL), served with the script so embeds make no third-party font request |
@@ -25,3 +25,7 @@ Static site, no build step. Deploy the folder as-is (Vercel: framework "Other", 
 ```
 
 The **Copy embed code** button writes this with your exact settings in `config`.
+
+## License
+
+MIT, see `LICENSE`. JetBrains Mono is under the SIL Open Font License.
