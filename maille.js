@@ -97,7 +97,6 @@
     splash: 0,           // bump this number to drop a splash at the pointer (a click)
     presence: 1,         // 0..1: share of cells drawn, a fixed random per cell, so a scene can dissolve in or out (crossfades)
     cutout: null,        // [x0, x1, fade] as fractions of the width: nothing is drawn between x0 and x1, and cells dissolve over `fade` on each side
-    cross: null,         // koi in side bands: [y0, y1] as fractions of the height, the only band where they cross from one side to the other (null = anywhere)
     sides: 0,            // creatures: 0 = whole scene; 0.05-0.45 = fraction of the width kept on each side. Koi live in the two bands and now and then cross; swimmers and birds travel both ways
     glow: true,          // teal dot field
     glitch: 0.06,
@@ -210,7 +209,6 @@
     o.count = Math.round(num(o.count, 4, 0, 60)); o.koiPads = num(o.koiPads, 6, 0, 30);
     o.agBirds = num(o.agBirds, 5, 0, 200); o.agFireflies = num(o.agFireflies, 22, 0, 200);
     o.size = num(o.size, 1, 0.05, 6); o.spread = num(o.spread, 35, 0, 360); o.heading = num(o.heading, -90, -720, 720);
-    o.cross = Array.isArray(o.cross) && o.cross.length >= 2 && o.cross.every((v) => Number.isFinite(+v)) ? [+o.cross[0], +o.cross[1]] : null;
     o.sides = num(o.sides, 0, 0, 0.45); o.presence = num(o.presence, 1, 0, 1); o.seed = num(o.seed, 7, -1e9, 1e9);
     if (!Array.isArray(o.accents) || !o.accents.length) o.accents = DEFAULTS.accents;
     if (o.varieties != null && !Array.isArray(o.varieties)) o.varieties = null;
@@ -551,7 +549,7 @@ const KOI_TINTS = {
       function wanderTo(c, U) {
         const p = c.path, st = p.step, Lb = c.Lb;
         // a side band too narrow for the creature to turn in: it swims the whole frame instead
-        const sbw = o.sides > 0 && (!!o.cross || o.width * clamp(o.sides, 0.05, 0.45) >= Lb * 2.4); // with a cross band the fish always keep to their side
+        const sbw = o.sides > 0 && o.width * clamp(o.sides, 0.05, 0.45) >= Lb * 2.4;
         while (p.len < U + st * 2) {
           const j = p.x.length - 1, n = p.base + j, x = p.x[j], y = p.y[j];
           // head for a wandering target inside the pond, with a little noise on top
@@ -561,33 +559,6 @@ const KOI_TINTS = {
             // sides: each fish owns a lane of its side band and swims back and forth along it, using
             // the band's whole width; now and then it makes a short trip across and comes back
             const sw = clamp(o.sides, 0.05, 0.45);
-            if (o.cross) {
-              // cross: the fish change sides only through one horizontal band (e.g. a gap left open in a page).
-              // A fish that decides to cross first swims to the band on its own side, then across inside it,
-              // and lives on the other side from then on
-              const b0 = clamp(Math.min(o.cross[0], o.cross[1]), 0, 1) * o.height, b1 = clamp(Math.max(o.cross[0], o.cross[1]), 0, 1) * o.height;
-              const open = b1 - b0 >= Lb * 0.9, bc = (b0 + b1) / 2;
-              if (seg !== p.seg) { if (!p.away && open && p.seg !== undefined && rnd3(seg, p.seed, 33) < 0.12) {
-                // only from the busier side (or an even split), so both sides stay populated
-                let mine = 0, other = 0;
-                for (const c2 of list) if (c2.path) { const s2 = c2.path.away ? -c2.path.side : c2.path.side; if (s2 === p.side) mine++; else other++; }
-                if (mine >= other) { p.away = true; p.crossing = false; }
-              } p.seg = seg; }
-              if (p.away && !p.crossing && !open) p.away = false;
-              const inner = p.side < 0 ? o.width * sw : o.width * (1 - sw);
-              if (p.away && !p.crossing && Math.abs(y - bc) < (b1 - b0) * 0.3 && Math.abs(x - inner) < o.width * sw * 0.5) p.crossing = true;
-              if (p.crossing && (p.side < 0 ? x > o.width * (1 - sw * 0.6) : x < o.width * sw * 0.6)) { p.side = -p.side; p.away = false; p.crossing = false; }
-              const end = (seg + (p.k || 0) + (p.side > 0 ? 1 : 0)) % 2 ? 0.72 : 0.3, u = clamp(end + (rnd3(seg, p.seed, 31) - 0.5) * 0.16, 0.22, 0.8);
-              if (p.crossing) {
-                tx = p.side < 0 ? o.width * (1 - sw * 0.4) : o.width * sw * 0.4; ty = bc;
-                p.band = [b0, b1];
-              } else {
-                tx = p.away ? inner : o.width * (p.side < 0 ? sw * u : 1 - sw * (1 - u));
-                ty = p.away ? bc : o.height * clamp(p.hy + (rnd3(seg, p.seed, 32) - 0.5) * p.lane, 0.05, 0.95);
-                if (p.side < 0) hi = o.width * sw; else lo = o.width * (1 - sw);
-                p.band = null;
-              }
-            } else {
             if (seg !== p.seg) { p.away = p.seg !== undefined && rnd3(seg, p.seed, 33) < 0.07; p.seg = seg; }
             const side = p.away ? -p.side : p.side, end = (seg + (p.k || 0) + (p.side > 0 ? 1 : 0)) % 2 ? 0.72 : 0.3;
             const u = clamp(end + (rnd3(seg, p.seed, 31) - 0.5) * 0.16, 0.22, 0.8);
@@ -595,25 +566,23 @@ const KOI_TINTS = {
             // the band's inner edge acts like the pond's edge, except on a trip across
             if (!p.away) { if (side < 0) hi = o.width * sw; else lo = o.width * (1 - sw); }
             ty = o.height * clamp(p.hy + (rnd3(seg, p.seed, 32) - 0.5) * p.lane, 0.05, 0.95);
-            p.band = null;
-            }
           } else {
             tx = o.width * clamp(p.hx + (rnd3(seg, p.seed, 31) - 0.5) * 0.6, 0.25, 0.75); ty = o.height * clamp(p.hy + (rnd3(seg, p.seed, 32) - 0.5) * 0.6, 0.25, 0.75);
           }
           let dth = Math.atan2(ty - y, tx - x) - p.th;
           dth = ((dth % TAU) + TAU * 1.5) % TAU - Math.PI;
           // in side lanes the fish hold their course more and wander less, so they keep to their lane
-          const pull = sbw ? (p.band ? 1.6 : 0.9) : 0.6, wobble = sbw ? (p.band ? 0.4 : 0.8) : 1.6;
+          const pull = sbw ? 0.9 : 0.6, wobble = sbw ? 0.8 : 1.6;
           let k = dth * pull / Lb + (noise1((n * st) / (Lb * 2.2), p.seed) - 0.5) * wobble / Lb;
           // side bands are narrow: look a little further, keep a wider margin and allow tighter turns
           const sb = sbw, dx = Math.cos(p.th), dy = Math.sin(p.th), look = Lb * (sb ? 1.25 : 1.8), few = o.count <= 4, mg = sb ? Lb * 0.5 : few ? Math.max(Lb, 0.1 * Math.min(o.width, o.height)) : Lb * 0.3; // a few creatures keep well inside
           // top and bottom of a side band: the fish may graze the screen edge, so the corners fill too
           const my = sb ? (few ? Math.max(Lb * 0.6, 0.06 * o.height) : Lb * 0.1) : mg, ly = sb ? 0.6 : 1;
-          const qx = x + dx * look, qy = y + dy * look * ly, yt = p.band ? p.band[0] + Lb * 0.3 : my, yb = p.band ? p.band[1] - Lb * 0.3 : o.height - my, out = Math.max(lo + mg - qx, qx - (hi - mg), yt - qy, qy - yb, 0);
+          const qx = x + dx * look, qy = y + dy * look * ly, out = Math.max(lo + mg - qx, qx - (hi - mg), my - qy, qy - (o.height - my), 0);
           if (out > 0) {
             // turn back toward the middle, the same way round as the target pull so the two never cancel
             // (in side lanes, back toward its own lane rather than the middle of the screen)
-            const cx = (lo + hi) / 2 - x, cy = (p.band ? (p.band[0] + p.band[1]) / 2 : sbw && !p.away ? p.hy * o.height : o.height / 2) - y;
+            const cx = (lo + hi) / 2 - x, cy = (sbw && !p.away ? p.hy * o.height : o.height / 2) - y;
             let ac = Math.atan2(cy, cx) - p.th;
             ac = ((ac % TAU) + TAU * 1.5) % TAU - Math.PI;
             const turn = Math.abs(ac) > 2.6 && Math.abs(dth) > 0.2 ? Math.sign(dth) : Math.sign(ac) || 1;
