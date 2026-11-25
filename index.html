@@ -217,7 +217,7 @@
         <details id="sceneMore"><summary>More</summary><div class="stack" id="sceneMoreBody"></div></details>
       </div>
       <div class="sec">
-        <div class="sec-h">Style</div>
+        <div class="sec-h">Style<button class="link" id="resetColours" hidden>Reset colours</button></div>
         <div class="stack" id="styleBody"></div>
         <details><summary>More</summary><div class="stack" id="styleMoreBody"></div></details>
       </div>
@@ -319,6 +319,14 @@
     if (Object.keys(diff).length) engine.set(diff);
     dirty = true;
     save();
+    syncReset();
+  }
+  // Reset colours: back to the scene's own colours (its preset, or the defaults for your image or text)
+  const COLOUR_KEYS = ['tint', 'tintAmount', 'brightness', 'saturation', 'bgAuto', 'background'];
+  function colourDefaults() { return AF.resolve(from && AF.PRESETS[from] ? fromPreset(from, S.format) : {}); }
+  function syncReset() {
+    const d = colourDefaults(), el = $('resetColours');
+    if (el) el.hidden = COLOUR_KEYS.every((k) => JSON.stringify(S[k]) === JSON.stringify(d[k]));
   }
   let saveT = 0;
   function save() { clearTimeout(saveT); saveT = setTimeout(() => { store.set(LS_STATE, S); store.set(LS_FROM, from); }, 300); }
@@ -530,6 +538,12 @@
   // ---------- stage: play, grain zoom, koi follow the cursor ----------
   let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, simT = playing ? 0 : 4, last = performance.now(); // reduced motion: a settled still, not frame 0
   $('shuffle').addEventListener('click', () => { S.seed = (Math.random() * 99999) | 0; push(); });
+  $('resetColours').addEventListener('click', () => {
+    const d = colourDefaults();
+    for (const k of COLOUR_KEYS) S[k] = d[k];
+    push(); syncAll();
+    $('styleMoreBody').parentElement.querySelector('summary').focus({ preventScroll: true }); // the link hides itself: keep the focus in the panel
+  });
   document.addEventListener('keydown', (e) => {
     if (/^(INPUT|TEXTAREA|SELECT|BUTTON|SUMMARY|A|LABEL)$/.test(document.activeElement.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.code === 'Space') { e.preventDefault(); playing = !playing; dirty = true; }
@@ -613,7 +627,7 @@
 
   window.maille = { engine, get state() { return S; }, seek(t) { playing = false; simT = t; engine.render(ctx, t); } };
 
-  applyFormat(); buildUI(); buildStrip(); fit(); syncSrc();
+  applyFormat(); buildUI(); buildStrip(); fit(); syncSrc(); syncReset();
   // settings open from the start on wide screens; on phones they wait for Edit
   if (matchMedia('(min-width: 861px)').matches) openDrawer(true);
   if (document.fonts) document.fonts.ready.then(() => { engine.refresh(); dirty = true; });
