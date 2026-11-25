@@ -117,6 +117,8 @@
     gap: null,           // px between cells (null = auto)
     brightness: 1,
     saturation: 1,
+    tint: null,          // one colour for the whole scene (any CSS colour): dark cells go to black, mid ones to the colour, bright ones to white; null = the scene's own colours
+    tintAmount: 1,       // 0..1: how far the scene moves to the tint
     // alpenglow
     agDaylight: 0, agCycle: false, agCycleSpeed: 1,
     agPeak1: 0.42, agPeak2: 0.71, agRugged: 1, agSnow: 0.5, agGlow: 0.42, agLight: -1, agHaze: 1, agFar: true,
@@ -2022,7 +2024,15 @@ const KOI_TINTS = {
         px32[i] = ((255 << 24) | ((((p >>> 16) & 255) * ia + ba) << 16) | ((((p >>> 8) & 255) * ia + ga) << 8) | ((p & 255) * ia + ra)) >>> 0;
       }
     }
+    // Tint (o.tint): set at the start of each render, applied to every colour the scene draws
+    let TN = null, TA = 1;
+    function tn(r, g, b) {
+      const f = (0.299 * r + 0.587 * g + 0.114 * b) / 127.5;
+      const tr = f <= 1 ? TN[0] * f : TN[0] + (255 - TN[0]) * (f - 1), tg = f <= 1 ? TN[1] * f : TN[1] + (255 - TN[1]) * (f - 1), tb = f <= 1 ? TN[2] * f : TN[2] + (255 - TN[2]) * (f - 1);
+      return [r + (tr - r) * TA, g + (tg - g) * TA, b + (tb - b) * TA];
+    }
     function drawGlyph(code, x0, y0, x1, y1, r, g, b) {
+      if (TN) { const q = tn(r, g, b); r = q[0]; g = q[1]; b = q[2]; }
       // Same maths as blendRun, inlined and run over the inked pixels only: identical output, a fraction of the work
       const m = glyphMask(code), sx = m.sx, sy = m.sy, sa = m.sa, n = sa.length;
       r = clamp(r, 0, 255); g = clamp(g, 0, 255); b = clamp(b, 0, 255);
@@ -2043,21 +2053,24 @@ const KOI_TINTS = {
       scene.frame(t);
       const W = Math.round(o.width), H = Math.round(o.height);
       if (!img || bufW !== W || bufH !== H) { img = ctx.createImageData(W, H); px32 = new Uint32Array(img.data.buffer); bufW = W; bufH = H; }
+      TN = o.tint ? parseColor(o.tint) : null; TA = clamp(o.tintAmount == null ? 1 : +o.tintAmount, 0, 1);
+      if (TN && !(TA > 0)) TN = null;
+      const T3 = (c) => (TN ? tn(c[0], c[1], c[2]) : c);
 
       // Background
       if (o.background === 'transparent') px32.fill(0);
       else if (scene.bg && o.background === DEFAULTS.background) {
-        const s = scene.bg.map(parseColor), s2 = s[2] || s[0];
+        const s = scene.bg.map(parseColor).map(T3), s2 = s[2] || s[0];
         for (let y = 0; y < H; y++) {
           const k = y / H;
           const [a, b, f] = k < 0.55 ? [s[0], s[1], k / 0.55] : [s[1], s2, (k - 0.55) / 0.45];
           px32.fill(pack(a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f), y * W, (y + 1) * W);
         }
-      } else { const b = parseColor(o.background); px32.fill(pack(b[0], b[1], b[2])); }
+      } else { const b = o.background === DEFAULTS.background ? T3(parseColor(o.background)) : parseColor(o.background); px32.fill(pack(b[0], b[1], b[2])); }
 
       // Grid
       if (o.grid) {
-        const gc = parseColor(scene.grid && o.gridColor === DEFAULTS.gridColor ? scene.grid : o.gridColor);
+        const gc0 = parseColor(scene.grid && o.gridColor === DEFAULTS.gridColor ? scene.grid : o.gridColor), gc = TN ? T3(gc0).concat(gc0[3]) : gc0;
         if (gc[3] >= 1) {
           const col = pack(gc[0], gc[1], gc[2]);
           for (let c = 1; c < cols; c++) { const x = Math.round(c * cw); for (let y = 0; y < H; y++) px32[y * W + x] = col; }
@@ -2096,12 +2109,13 @@ const KOI_TINTS = {
             let q3;
             if (scene.lightBg) { const m = 110 + 110 * I; q3 = A(m * GR[idx], m * GG[idx], m * GB[idx]); }
             else q3 = A(10 + q * GR[idx], 14 + q * GG[idx], 18 + q * GB[idx]);
+            if (TN) q3 = tn(q3[0], q3[1], q3[2]);
             col = pack(q3[0], q3[1], q3[2]);
             const x0 = Math.round(cx - sz / 2), y0 = Math.round(cy - sz / 2);
             fillRect(x0, y0, x0 + sz, y0 + sz, col);
           }
         }
-        if (a > 0.02) blendRect(Math.round(c * cw + cw * 0.22), Math.round(cy - lh / 2), Math.round(c * cw + cw * 0.78), Math.round(cy - lh / 2) + lh, 150, 152, 160, Math.min(1, a));
+        if (a > 0.02) { const dc = T3([150, 152, 160]); blendRect(Math.round(c * cw + cw * 0.22), Math.round(cy - lh / 2), Math.round(c * cw + cw * 0.78), Math.round(cy - lh / 2) + lh, dc[0], dc[1], dc[2], Math.min(1, a)); }
       }
 
       // Cells
@@ -2141,7 +2155,7 @@ const KOI_TINTS = {
         else if (kd === DARK) { C = 24 + s * 40; if (!code) code = DARK_CH[pick % 3].charCodeAt(0); tc = [70 * tr, 70 * tg, 70 * tb]; }
         else { C = 46 + s * 165; if (!code) { const n = RC.length; code = RC[clamp(Math.floor((1 - s) * (n - 0.01)) + ((pick % 3) - 1), 0, n - 1)]; } }
         C *= v;
-        const f3 = A(C * tr, C * tg, C * tb + 4);
+        const f3 = T3(A(C * tr, C * tg, C * tb + 4));
         fillRect(x0 + g, y0 + g, x1, y1, pack(f3[0], f3[1], f3[2]));
         if (isAcc) tc = acc[key % nAcc];
         else if (!tc) { const k = C > 120 ? C * (1 - 0.58 * ink) : C + (C * 0.6 + 38) * ink; tc = A(k * tr, k * tg, k * tb); }

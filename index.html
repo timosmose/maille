@@ -227,7 +227,7 @@
 </div>
 <div class="toast" id="toast" role="status"></div>
 
-<script src="maille.js?v=dc30ba9f"></script>
+<script src="maille.js?v=8d6ff468"></script>
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
@@ -277,6 +277,7 @@
       { k: 'ramp', label: 'Characters', type: 'glyphs' },
       R('cols', 'Detail', 24, 300, 2, int), R('speed', 'Speed', 0, 3, 0.05, xx)],
     [{ k: 'ramp', label: 'Your characters', type: 'chars' }, R('cellAspect', 'Cell height', 1, 2.4, 0.05, xx), R('brightness', 'Brightness', 0.4, 1.8, 0.02, xx), R('saturation', 'Saturation', 0, 2, 0.02, xx),
+      { k: 'tint', label: 'Colour', type: 'tint' }, R('tintAmount', 'Colour strength', 0, 1, 0.01, pct),
       R('glitch', 'Glitch', 0, 0.4, 0.005, pct), T('glow', 'Glow dots'), T('grid', 'Grid'), { k: 'background', label: 'Background', type: 'bg' }],
   ];
 
@@ -397,6 +398,13 @@
         push(); syncAll();
       });
       row.sync = () => { if (document.activeElement !== inp) inp.value = area ? S.text : (RAMPS.some((r) => r[1] === S.ramp) ? '' : S.ramp); };
+    } else if (def.type === 'tint') {
+      // One colour for any scene; "Scene" goes back to its own colours
+      row.innerHTML = `<span class="lbl" id="${id}">${def.label}</span><span class="bgpick"><button class="link" type="button">Scene</button><input type="color" aria-labelledby="${id}"></span>`;
+      const auto = row.querySelector('button'), col = row.querySelector('input');
+      auto.addEventListener('click', () => { S.tint = null; push(); syncAll(); });
+      col.addEventListener('input', () => { S.tint = col.value; push(); syncAll(); });
+      row.sync = () => { col.value = /^#[0-9a-f]{6}$/i.test(S.tint || '') ? S.tint : '#bea5f6'; auto.style.color = S.tint ? '' : 'var(--color-text-primary)'; col.style.opacity = S.tint ? '' : '0.35'; };
     } else if (def.type === 'bg') {
       row.innerHTML = `<span class="lbl" id="${id}">${def.label}</span><span class="bgpick"><button class="link" type="button">Scene</button><input type="color" aria-labelledby="${id}"></span>`;
       const auto = row.querySelector('button'), col = row.querySelector('input');
@@ -415,6 +423,7 @@
       if (k === 'animAmount') r.hidden = !S.anim;
       if (k === 'agDaylight') r.hidden = S.agCycle;
       if (k === 'agCycleSpeed') r.hidden = !S.agCycle;
+      if (k === 'tintAmount') r.hidden = !S.tint;
     }
   }
   function fill(el, defs) { el.innerHTML = ''; for (const d of defs) el.appendChild(control(d)); }
