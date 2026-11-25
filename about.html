@@ -55,6 +55,8 @@
   p code, td code, .chips code { background: var(--gray-2); box-shadow: var(--ring); border-radius: 4px; padding: 1px 5px; white-space: nowrap; color: var(--gray-12); }
   pre { margin: 0 0 12px; background: var(--gray-2); box-shadow: var(--ring); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font: 13px/1.6 var(--mono); color: var(--gray-12); }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  /* a scrolled code block keeps its right padding: the code sizes to its longest line */
+  pre code { display: block; width: max-content; padding-right: 16px; }
   .table { overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; font-size: 14px; line-height: 22px; }
   th, td { text-align: left; padding: 9px 12px 9px 0; border-bottom: 1px solid var(--gray-4); vertical-align: top; }
@@ -110,7 +112,8 @@
     <h2>Script embed</h2>
     <p>Works in any HTML page, Webflow (Embed element) and Framer (Embed component, HTML mode). The <strong>Copy embed code</strong> button writes it for you with your settings inside <code>config</code>.</p>
 <pre><code>&lt;script src="https://SITE/maille.js" defer&gt;&lt;/script&gt;
-&lt;maille-scene preset="alpenglow" style="display:block;width:100%;aspect-ratio:16/9"&gt;&lt;/maille-scene&gt;</code></pre>
+&lt;maille-scene preset="alpenglow"
+              style="display:block;width:100%;aspect-ratio:16/9"&gt;&lt;/maille-scene&gt;</code></pre>
     <p>The scene fills its element. It draws nothing until it comes into view, pauses when out of view, runs at 60 fps at most and shows a still frame to visitors who prefer reduced motion.</p>
   </section>
 
