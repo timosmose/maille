@@ -1997,31 +1997,44 @@ const KOI_TINTS = {
       const d = gctx.getImageData(0, 0, gw, gh).data;
       m = new Uint8Array(gw * gh);
       for (let i = 0; i < m.length; i++) m[i] = d[i * 4 + 3];
+      // Sparse copy for drawing: only the inked pixels (most of a glyph cell is empty)
+      let n = 0; for (let i = 0; i < m.length; i++) if (m[i]) n++;
+      const sx = new Uint16Array(n), sy = new Uint16Array(n), sa = new Float64Array(n);
+      for (let i = 0, k = 0; i < m.length; i++) if (m[i]) { sx[k] = i % gw; sy[k] = (i / gw) | 0; sa[k++] = m[i] / 255; }
+      m.sx = sx; m.sy = sy; m.sa = sa;
       atlas.set(code, m);
       return m;
     }
     const pack = (r, g, b) => ((255 << 24) | (clamp(b | 0, 0, 255) << 16) | (clamp(g | 0, 0, 255) << 8) | clamp(r | 0, 0, 255)) >>> 0;
-    function blendPx(i, r, g, b, a) {
-      const p = px32[i], ia = 1 - a;
-      px32[i] = ((255 << 24) | ((((p >>> 16) & 255) * ia + b * a) << 16) | ((((p >>> 8) & 255) * ia + g * a) << 8) | ((p & 255) * ia + r * a)) >>> 0;
-    }
     function fillRect(x0, y0, x1, y1, col) {
       x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(bufW, x1); y1 = Math.min(bufH, y1);
       for (let y = y0; y < y1; y++) px32.fill(col, y * bufW + x0, y * bufW + x1);
     }
     function blendRect(x0, y0, x1, y1, r, g, b, a) {
       x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(bufW, x1); y1 = Math.min(bufH, y1);
-      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) blendPx(y * bufW + x, r, g, b, a);
+      for (let y = y0; y < y1; y++) blendRun(y * bufW + x0, 1, x1 - x0, r, g, b, a);
+    }
+    // blendPx over `count` pixels spaced by `step`, one call per run instead of per pixel (same maths)
+    function blendRun(i, step, count, r, g, b, a) {
+      const ia = 1 - a, ra = r * a, ga = g * a, ba = b * a;
+      for (let k = 0; k < count; k++, i += step) {
+        const p = px32[i];
+        px32[i] = ((255 << 24) | ((((p >>> 16) & 255) * ia + ba) << 16) | ((((p >>> 8) & 255) * ia + ga) << 8) | ((p & 255) * ia + ra)) >>> 0;
+      }
     }
     function drawGlyph(code, x0, y0, x1, y1, r, g, b) {
-      const m = glyphMask(code), gw = atlas.gw;
+      // Same maths as blendRun, inlined and run over the inked pixels only: identical output, a fraction of the work
+      const m = glyphMask(code), sx = m.sx, sy = m.sy, sa = m.sa, n = sa.length;
       r = clamp(r, 0, 255); g = clamp(g, 0, 255); b = clamp(b, 0, 255);
-      for (let y = y0; y < y1 && y < bufH; y++) {
-        const row = (y - y0) * gw;
-        for (let x = x0; x < x1 && x < bufW; x++) {
-          const a = m[row + x - x0];
-          if (a) blendPx(y * bufW + x, r, g, b, a / 255);
-        }
+      const xe = Math.min(x1, bufW), ye = Math.min(y1, bufH);
+      const solid = ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0;
+      for (let k = 0; k < n; k++) {
+        const x = x0 + sx[k], y = y0 + sy[k];
+        if (x >= xe || y >= ye) continue;
+        const i = y * bufW + x, a = sa[k];
+        if (a === 1) { px32[i] = solid; continue; }
+        const p = px32[i], ia = 1 - a;
+        px32[i] = ((255 << 24) | ((((p >>> 16) & 255) * ia + b * a) << 16) | ((((p >>> 8) & 255) * ia + g * a) << 8) | ((p & 255) * ia + r * a)) >>> 0;
       }
     }
 
@@ -2050,8 +2063,8 @@ const KOI_TINTS = {
           for (let c = 1; c < cols; c++) { const x = Math.round(c * cw); for (let y = 0; y < H; y++) px32[y * W + x] = col; }
           for (let r = 1; r < rows; r++) { const y = Math.round(r * ch); if (y < H) px32.fill(col, y * W, (y + 1) * W); }
         } else {
-          for (let c = 1; c < cols; c++) { const x = Math.round(c * cw); for (let y = 0; y < H; y++) blendPx(y * W + x, gc[0], gc[1], gc[2], gc[3]); }
-          for (let r = 1; r < rows; r++) { const y = Math.round(r * ch); if (y < H) for (let x = 0; x < W; x++) blendPx(y * W + x, gc[0], gc[1], gc[2], gc[3]); }
+          for (let c = 1; c < cols; c++) { const x = Math.round(c * cw); blendRun(x, W, H, gc[0], gc[1], gc[2], gc[3]); }
+          for (let r = 1; r < rows; r++) { const y = Math.round(r * ch); if (y < H) blendRun(y * W, 1, W, gc[0], gc[1], gc[2], gc[3]); }
         }
       }
 
@@ -2295,14 +2308,14 @@ const KOI_TINTS = {
   if (typeof window === 'undefined' || !window.customElements || customElements.get('maille-scene')) return;
 
   class MailleScene extends HTMLElement {
-    static get observedAttributes() { return ['config', 'preset', 'speed', 'paused', 'motion', 'dpr']; }
+    static get observedAttributes() { return ['config', 'preset', 'speed', 'paused', 'motion', 'dpr', 'fps', 'label']; }
     constructor() {
       super();
       const sh = this.attachShadow({ mode: 'open' });
       sh.innerHTML = '<style>:host{display:block;position:relative;overflow:hidden;background:#050506}:host([hidden]){display:none}canvas{position:absolute;inset:0;width:100%;height:100%;display:block}</style><canvas part="canvas" role="img" aria-label="Animated ASCII scene"></canvas>';
       this._cv = sh.querySelector('canvas');
       this._ctx = this._cv.getContext('2d');
-      this._t = 0; this._last = 0; this._raf = 0; this._visible = true; this._cfg = null; this._engine = null;
+      this._t = 0; this._last = 0; this._raf = 0; this._visible = false; this._near = false; this._seeked = false; this._cfg = null; this._engine = null;
       this._tick = this._tick.bind(this);
     }
     connectedCallback() {
@@ -2310,12 +2323,15 @@ const KOI_TINTS = {
       this._apply();
       this._ro = new ResizeObserver(() => this._fit());
       this._ro.observe(this);
-      this._io = new IntersectionObserver((es) => { this._visible = es.some((e) => e.isIntersecting); this._loop(); });
+      // Nothing is drawn until the scene comes near the screen, and it only moves while on it
+      this._io = new IntersectionObserver((es) => { this._visible = es.some((e) => e.isIntersecting); if (this._visible && !this._near) { this._near = true; this._draw(); } this._loop(); }, { rootMargin: '150px' });
       this._io.observe(this);
-      this._onVis = () => this._loop();
-      document.addEventListener('visibilitychange', this._onVis);
+      this._onDoc = () => this._loop();
+      document.addEventListener('visibilitychange', this._onDoc);
       this._reduced = matchMedia('(prefers-reduced-motion: reduce)');
+      this._onVis = () => { this._loop(); if (this._still()) this._paint(); };
       this._reduced.addEventListener('change', this._onVis);
+      this._label();
       this._fit();
       this._loop();
       // interactive: the pointer reaches the scene (koi follow or flee it, bait fish scatter, a click splashes)
@@ -2329,16 +2345,19 @@ const KOI_TINTS = {
     disconnectedCallback() {
       cancelAnimationFrame(this._raf); this._raf = 0;
       this._ro && this._ro.disconnect(); this._io && this._io.disconnect();
-      document.removeEventListener('visibilitychange', this._onVis);
+      document.removeEventListener('visibilitychange', this._onDoc);
       this._reduced && this._reduced.removeEventListener('change', this._onVis);
     }
     attributeChangedCallback(name) {
       if (!this.isConnected) return;
       // playback attributes only touch the loop; a new config or preset attribute wins over earlier JS changes
-      if (name === 'paused' || name === 'motion') { this._loop(); return; }
+      if (name === 'paused' || name === 'motion') { this._loop(); if (this._still()) this._paint(); return; }
+      if (name === 'fps') return;
+      if (name === 'label') { this._label(); return; }
       if (name === 'speed') { this._speed(); this._loop(); return; }
       if (name === 'dpr') { this._fit(); return; }
       this._override = null; this._apply(); this._loop();
+      if (name === 'preset') this._label();
     }
     _speed() { const v = parseFloat(this.getAttribute('speed')); if (this._cfg) this._cfg.speed = Number.isFinite(v) ? v : (Number.isFinite(+this._cfg.speed) ? this._cfg.speed : 1); }
 
@@ -2346,13 +2365,13 @@ const KOI_TINTS = {
     get config() { return clone(this._cfg); }
     set config(v) { this._override = v; this._apply(); }
     set(partial) { this._override = Object.assign({}, this._override || this._attrConfig(), partial); this._apply(); }
-    seek(t) { this._t = +t || 0; this._draw(); }
+    seek(t) { this._t = +t || 0; this._seeked = true; this._draw(); }
     play() { this.removeAttribute('paused'); }
     pause() { this.setAttribute('paused', ''); }
     get engine() { return this._engine; }
     // Share of cells drawn (0..1), for dissolving the scene in or out without a rebuild
     get presence() { return this._presence == null ? 1 : this._presence; }
-    set presence(v) { this._presence = v; if (this._engine) { this._engine.set({ presence: v }); this._draw(); } }
+    set presence(v) { this._presence = v; if (this._engine) { this._engine.set({ presence: v }); this._paint(); } }
     // An image, video or canvas element to draw (image scene), in place of config.src
     get source() { return this._source || null; }
     set source(v) { this._source = v || null; if (this._engine) { this._apply(); this._loop(); } }
@@ -2383,8 +2402,8 @@ const KOI_TINTS = {
           entry.p.then((img) => {
             if (this._pending !== want) return;
             this._pending = '';
-            this._engine.set({ source: img }); this._draw();
-          }, (e) => { console.warn(e.message); if (this._pending === want) { this._pending = ''; this._draw(); } });
+            this._engine.set({ source: img }); this._paint();
+          }, (e) => { console.warn(e.message); if (this._pending === want) { this._pending = ''; this._paint(); } });
         }
       }
       // Send only what changed: a live set() must not rebuild the whole scene
@@ -2397,8 +2416,8 @@ const KOI_TINTS = {
         for (const k in opts) { const v = sig(opts[k]); if (this._sent[k] !== v) { diff[k] = opts[k]; this._sent[k] = v; } }
         if (Object.keys(diff).length) this._engine.set(diff);
       }
-      if (this._font !== this._cfg.font) { this._font = this._cfg.font; ensureFont(this._cfg.font).then(() => { this._engine.refresh(); this._draw(); }); }
-      this._draw();
+      if (this._font !== this._cfg.font) { this._font = this._cfg.font; ensureFont(this._cfg.font).then(() => { this._engine.refresh(); this._paint(); }); }
+      this._paint();
     }
     _fit() {
       // dpr="1" caps the resolution: for full-page backgrounds, where sharpness matters less than cost
@@ -2407,27 +2426,39 @@ const KOI_TINTS = {
       if (this._cv.width !== w || this._cv.height !== h) {
         this._cv.width = w; this._cv.height = h;
         if (this._engine) this._engine.set({ width: w, height: h, cols: this._effCols() });
-        this._draw();
+        this._paint();
       }
     }
     // Keep cells at least 3 CSS px wide so small embeds stay legible (the same on every screen density)
     _effCols() { const c = this._cfg ? this._cfg.cols : 200, w = this.getBoundingClientRect().width || this._cv.width; return Math.max(16, Math.min(c, Math.floor(Math.max(w, 48) / 3))); }
-    _animating() {
-      const reduced = this._reduced && this._reduced.matches && this.getAttribute('motion') !== 'always';
-      return this.isConnected && this._visible && !document.hidden && !this.hasAttribute('paused') && !reduced;
-    }
+    // Reduced motion: the scene holds one still frame (motion="always" opts out)
+    _still() { return !!(this._reduced && this._reduced.matches) && this.getAttribute('motion') !== 'always'; }
+    _animating() { return this.isConnected && this._visible && !document.hidden && !this.hasAttribute('paused') && !this._still(); }
     _loop() { if (this._animating() && !this._raf) { this._last = performance.now(); this._raf = requestAnimationFrame(this._tick); } }
+    // Frames per second, 60 at most by default: a 120 Hz screen would otherwise render twice as often for nothing
+    _fps() { const v = parseFloat(this.getAttribute('fps')); return Number.isFinite(v) && v > 0 ? Math.min(v, 240) : 60; }
     _tick(now) {
       this._raf = 0;
       if (!this._animating()) return;
       this._raf = requestAnimationFrame(this._tick); // armed first: one bad frame never stops the scene
-      this._t += Math.min(0.05, (now - this._last) / 1000) * (this._cfg ? this._cfg.speed : 1);
+      const fps = this._fps(), dt = now - this._last;
+      if (dt < 1000 / fps - 2) return; // 2 ms slack: a 60 Hz screen still draws every frame at fps 60
+      this._t += Math.min(Math.max(0.05, 2 / fps), dt / 1000) * (this._cfg ? this._cfg.speed : 1);
       this._last = now;
       try { this._draw(); } catch (e) { if (!this._err) console.error('maille-scene:', this._err = e); }
     }
+    // Automatic redraws wait until the scene is near the screen; seek() always draws
+    _paint() { if (this._near) this._draw(); }
     _draw() {
       if (this._pending) { this._ctx.clearRect(0, 0, this._cv.width, this._cv.height); return; }
-      if (this._engine && this._cv.width > 2) this._engine.render(this._ctx, this._t);
+      // The still frame is taken a few seconds in (poster="4" by default), when the scene has settled
+      let t = this._t;
+      if (this._still() && !this._seeked && t === 0) { const p = parseFloat(this.getAttribute('poster')); t = Number.isFinite(p) ? p : 4; }
+      if (this._engine && this._cv.width > 2) this._engine.render(this._ctx, t);
+    }
+    _label() {
+      const l = this.getAttribute('label'), pr = PRESETS[this.getAttribute('preset')];
+      this._cv.setAttribute('aria-label', l || (pr ? `Animated ASCII scene: ${pr.name}` : 'Animated ASCII scene'));
     }
   }
   customElements.define('maille-scene', MailleScene);

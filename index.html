@@ -227,7 +227,7 @@
 </div>
 <div class="toast" id="toast" role="status"></div>
 
-<script src="maille.js?v=4dacb453"></script>
+<script src="maille.js?v=dc30ba9f"></script>
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
@@ -519,7 +519,7 @@
   document.addEventListener('paste', (e) => { const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith('image/')); if (f) loadImage(f); });
 
   // ---------- stage: play, grain zoom, koi follow the cursor ----------
-  let simT = 0, last = performance.now(), playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, simT = playing ? 0 : 4, last = performance.now(); // reduced motion: a settled still, not frame 0
   $('shuffle').addEventListener('click', () => { S.seed = (Math.random() * 99999) | 0; push(); });
   document.addEventListener('keydown', (e) => {
     if (/^(INPUT|TEXTAREA|SELECT|BUTTON|SUMMARY|A|LABEL)$/.test(document.activeElement.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -552,8 +552,9 @@
   // Draw only when something moves or changed: paused, speed 0 or reduced motion cost nothing (see tick)
   function tick(now) {
     requestAnimationFrame(tick); // armed first: one bad frame never stops the preview
-    const dt = Math.min(0.05, (now - last) / 1000); last = now;
     const moving = playing && S.speed > 0;
+    if (moving && now - last < 1000 / 60 - 2) return; // 60 fps at most: a 120 Hz screen would render twice for nothing
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (moving) simT += dt * S.speed;
     if (!moving && !dirty) return;
     dirty = false;

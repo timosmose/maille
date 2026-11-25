@@ -111,7 +111,7 @@
     <p>Works in any HTML page, Webflow (Embed element) and Framer (Embed component, HTML mode). The <strong>Copy embed code</strong> button writes it for you with your settings inside <code>config</code>.</p>
 <pre><code>&lt;script src="https://SITE/maille.js" defer&gt;&lt;/script&gt;
 &lt;maille-scene preset="alpenglow" style="display:block;width:100%;aspect-ratio:16/9"&gt;&lt;/maille-scene&gt;</code></pre>
-    <p>The scene fills its element. It pauses when out of view and shows a still frame to visitors who prefer reduced motion.</p>
+    <p>The scene fills its element. It draws nothing until it comes into view, pauses when out of view, runs at 60 fps at most and shows a still frame to visitors who prefer reduced motion.</p>
   </section>
 
   <section>
@@ -132,6 +132,9 @@
         <tr><td><code>paused</code></td><td>present or absent</td><td>Holds the current frame.</td></tr>
         <tr><td><code>motion</code></td><td><code>always</code></td><td>Keeps animating when the visitor prefers reduced motion.</td></tr>
         <tr><td><code>dpr</code></td><td>number</td><td>Caps the pixel density, e.g. <code>1</code> for a full-page background.</td></tr>
+        <tr><td><code>fps</code></td><td>number</td><td>Frames per second, 60 by default. <code>30</code> halves the cost of a background.</td></tr>
+        <tr><td><code>poster</code></td><td>seconds</td><td>The moment shown as a still to visitors who prefer reduced motion, 4 by default.</td></tr>
+        <tr><td><code>label</code></td><td>text</td><td>What screen readers announce, e.g. <code>Koi swimming in a pond</code>. Defaults to the preset name.</td></tr>
         <tr><td><code>interactive</code></td><td>present or absent</td><td>Lets the pointer into the scene: koi follow or flee it, bait fish scatter, a click splashes.</td></tr>
       </tbody>
     </table></div>
@@ -167,7 +170,7 @@ engine.render(canvas.getContext('2d'), 3.2);</code></pre>
     <p>Maille is free to use, including on client work. The engine, the site and the skill are in one public repository under the <a href="https://github.com/timosmose/maille/blob/main/LICENSE">MIT license</a>. Bugs and ideas go in <a href="https://github.com/timosmose/maille/issues">GitHub issues</a>.</p>
   </section>
 </main>
-<script src="maille.js?v=4dacb453"></script>
+<script src="maille.js?v=dc30ba9f"></script>
 <script>
   // The koi pond of timdalverny.com, same settings and same behaviour: the fish keep to the side bands, now and
   // then cross under the column, dissolving cell by cell as they reach it; the pond forms cell by cell when it

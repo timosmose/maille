@@ -98,4 +98,4 @@ When the user wants the scene live on a site rather than as a file:
 <maille-scene config='{"scene":"koi","count":7}' style="display:block;width:100%;aspect-ratio:1/1"></maille-scene>
 ```
 
-The element pauses off screen and respects reduced motion. `scene.set({...})`, `scene.seek(t)` and `scene.presence = 0.5` work from JavaScript.
+The element draws nothing until it is near the screen, pauses off screen, caps at 60 fps (`fps` attribute) and shows a still (`poster`, 4 s) under reduced motion; `label` sets what screen readers announce. `scene.set({...})`, `scene.seek(t)` and `scene.presence = 0.5` work from JavaScript.
