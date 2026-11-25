@@ -51,6 +51,8 @@
   h1 { font-size: 32px; line-height: 38px; margin: 0 0 8px; font-weight: 600; color: var(--gray-12); text-wrap: balance; }
   h2 { font-size: 18px; line-height: 26px; margin: 0 0 10px; font-weight: 500; color: var(--gray-12); }
   p { margin: 0 0 12px; max-width: 65ch; }
+  /* code blocks and tables stop where the text stops */
+  pre, .table { max-width: 656px; }
   code { font: 13px var(--mono); }
   p code, td code, .chips code { background: var(--gray-2); box-shadow: var(--ring); border-radius: 4px; padding: 1px 5px; white-space: nowrap; color: var(--gray-12); }
   pre { margin: 0 0 12px; background: var(--gray-2); box-shadow: var(--ring); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font: 13px/1.6 var(--mono); color: var(--gray-12); }
@@ -113,7 +115,7 @@
     <p>Works in any HTML page, Webflow (Embed element) and Framer (Embed component, HTML mode). The <strong>Copy embed code</strong> button writes it for you with your settings inside <code>config</code>.</p>
 <pre><code>&lt;script src="https://SITE/maille.js" defer&gt;&lt;/script&gt;
 &lt;maille-scene preset="alpenglow"
-              style="display:block;width:100%;aspect-ratio:16/9"&gt;&lt;/maille-scene&gt;</code></pre>
+  style="display:block;width:100%;aspect-ratio:16/9"&gt;&lt;/maille-scene&gt;</code></pre>
     <p>The scene fills its element. It draws nothing until it comes into view, pauses when out of view, runs at 60 fps at most and shows a still frame to visitors who prefer reduced motion.</p>
   </section>
 
@@ -121,7 +123,7 @@
     <h2>Iframe embed</h2>
     <p>For tools that only accept a URL. The settings travel in the address.</p>
 <pre><code>&lt;iframe src="https://SITE/e.html?preset=alpine-day"
-        style="width:100%;aspect-ratio:16/9;border:0" loading="lazy"&gt;&lt;/iframe&gt;</code></pre>
+  style="width:100%;aspect-ratio:16/9;border:0" loading="lazy"&gt;&lt;/iframe&gt;</code></pre>
   </section>
 
   <section>
@@ -151,14 +153,23 @@
   <section>
     <h2>JavaScript</h2>
 <pre><code>const scene = document.querySelector('maille-scene');
-scene.set({ agDaylight: 1, agBirds: 9 });   // change any setting live
-scene.pause(); scene.seek(12.5);             // exact frame at 12.5 s
+// Change any setting live
+scene.set({ agDaylight: 1, agBirds: 9 });
+
+// Exact frame at 12.5 s
+scene.pause(); scene.seek(12.5);
 scene.play();
-scene.presence = 0.5;                        // share of cells drawn, for dissolves
-scene.source = videoOrCanvas;                // image scene: draw any image, video or canvas
+
+// Share of cells drawn, for dissolves
+scene.presence = 0.5;
+
+// Image scene: draw any image, video or canvas
+scene.source = videoOrCanvas;
 
 // Without the element
-const engine = Maille.create({ scene: 'waves', width: 1920, height: 1080, cols: 160 });
+const engine = Maille.create({
+  scene: 'waves', width: 1920, height: 1080, cols: 160
+});
 engine.render(canvas.getContext('2d'), 3.2);</code></pre>
   </section>
 
